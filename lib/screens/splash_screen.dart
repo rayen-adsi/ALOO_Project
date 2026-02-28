@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'onboarding_screen.dart';
+import 'app_start.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -98,7 +99,7 @@ class _SplashScreenState extends State<SplashScreen>
     // Total splash time = 6 seconds
     Timer(const Duration(seconds: 6), () {
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(_fadeRoute(const OnboardingScreen()));
+      Navigator.of(context).pushReplacement(_fadeRoute(const AppStart()));
     });
   }
 

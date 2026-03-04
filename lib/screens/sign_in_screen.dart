@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'signup_role_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -86,6 +87,7 @@ class _SignInScreenState extends State<SignInScreen>
             child: Image.asset(
               'assets/images/bg.png',
               fit: BoxFit.cover,
+              
             ),
           ),
 
@@ -152,10 +154,15 @@ class _SignInScreenState extends State<SignInScreen>
                             onForgot: () {
                               // TODO: navigate to forgot password
                             },
-                            onGoToSignUp: () {
-                              // TODO: navigate to sign up
-                            },
-                          ),
+                           onGoToSignUp: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SignUpRoleScreen(),
+                              ),
+                            );
+                          },
+                                                    ),
                         ),
                       ),
                     ),

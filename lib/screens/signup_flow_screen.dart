@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_services.dart';
 
 enum SignUpRole { client, provider }
 
@@ -17,22 +18,23 @@ class SignUpFlowScreen extends StatefulWidget {
 class _SignUpFlowScreenState extends State<SignUpFlowScreen> {
   late final SignUpRole _role;
 
-  // Provider multi-step
   final PageController _pageCtrl = PageController();
-  int _step = 0; // 0 personal, 1 professional
+  int _step = 0;
 
-  // Controllers (MVP)
+  bool _isLoading = false;
+
+  // Controllers
   final _fullNameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
-  final _pass2Ctrl = TextEditingController();
-  final _addressCtrl = TextEditingController();
+  final _emailCtrl    = TextEditingController();
+  final _phoneCtrl    = TextEditingController();
+  final _passCtrl     = TextEditingController();
+  final _pass2Ctrl    = TextEditingController();
+  final _addressCtrl  = TextEditingController();
 
   // Professional
   String? _category;
   final _cityCtrl = TextEditingController();
-  final _bioCtrl = TextEditingController();
+  final _bioCtrl  = TextEditingController();
 
   @override
   void initState() {
@@ -43,17 +45,14 @@ class _SignUpFlowScreenState extends State<SignUpFlowScreen> {
   @override
   void dispose() {
     _pageCtrl.dispose();
-
     _fullNameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _passCtrl.dispose();
     _pass2Ctrl.dispose();
     _addressCtrl.dispose();
-
     _cityCtrl.dispose();
     _bioCtrl.dispose();
-
     super.dispose();
   }
 
@@ -63,6 +62,12 @@ class _SignUpFlowScreenState extends State<SignUpFlowScreen> {
           : 'assets/images/bg_provider.png';
 
   bool get _isProvider => _role == SignUpRole.provider;
+
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
+  }
 
   Future<void> _onBack() async {
     if (_isProvider && _step == 1) {
@@ -76,21 +81,102 @@ class _SignUpFlowScreenState extends State<SignUpFlowScreen> {
   }
 
   Future<void> _onPrimary() async {
+    if (_isLoading) return;
+
     if (_isProvider) {
       if (_step == 0) {
-        // TODO: validate step 1 before going next
+        await _handleProviderStep1();
+      } else {
+        await _handleProviderStep2();
+      }
+    } else {
+      await _handleClientSignup();
+    }
+  }
+
+  // ===================== CLIENT SIGNUP =====================
+
+  Future<void> _handleClientSignup() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await ApiService.signupClient(
+        fullName:  _fullNameCtrl.text.trim(),
+        email:     _emailCtrl.text.trim(),
+        phone:     _phoneCtrl.text.trim(),
+        password:  _passCtrl.text,
+        password2: _pass2Ctrl.text,
+        address:   _addressCtrl.text.trim(),
+      );
+
+      if (!mounted) return;
+      _showMessage(result["message"]);
+
+      if (result["success"] == true) {
+        // TODO: Navigator.pushReplacement to home screen
+      }
+    } catch (_) {
+      if (mounted) _showMessage("Connection error — check your network");
+    }
+
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  // ===================== PROVIDER STEP 1 =====================
+
+  Future<void> _handleProviderStep1() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await ApiService.signupProviderStep1(
+        fullName:  _fullNameCtrl.text.trim(),
+        email:     _emailCtrl.text.trim(),
+        phone:     _phoneCtrl.text.trim(),
+        password:  _passCtrl.text,
+        password2: _pass2Ctrl.text,
+      );
+
+      if (!mounted) return;
+
+      if (result["success"] == true) {
         await _pageCtrl.nextPage(
           duration: const Duration(milliseconds: 240),
           curve: Curves.easeOutCubic,
         );
       } else {
-        // TODO: validate + submit provider signup
-        // submitProvider();
+        _showMessage(result["message"]);
       }
-    } else {
-      // TODO: submit client signup
-      // submitClient();
+    } catch (_) {
+      if (mounted) _showMessage("Connection error — check your network");
     }
+
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  // ===================== PROVIDER STEP 2 =====================
+
+  Future<void> _handleProviderStep2() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await ApiService.signupProviderStep2(
+        category: _category ?? "",
+        city:     _cityCtrl.text.trim(),
+        address:  _addressCtrl.text.trim(),
+        bio:      _bioCtrl.text.trim(),
+      );
+
+      if (!mounted) return;
+      _showMessage(result["message"]);
+
+      if (result["success"] == true) {
+        // TODO: Navigator.pushReplacement to home screen
+      }
+    } catch (_) {
+      if (mounted) _showMessage("Connection error — check your network");
+    }
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
@@ -101,17 +187,12 @@ class _SignUpFlowScreenState extends State<SignUpFlowScreen> {
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // Base background
           Positioned.fill(
             child: Image.asset('assets/images/bg.png', fit: BoxFit.cover),
           ),
-
-          // Role background (instant)
           Positioned.fill(
             child: Image.asset(_bgAsset, fit: BoxFit.cover),
           ),
-
-          // Light overlay
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -152,14 +233,9 @@ class _SignUpFlowScreenState extends State<SignUpFlowScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 86, 20, 18),
                 child: Column(
                   children: [
-                    // Header (changes for provider steps)
-                    _HeaderBlock(
-                      isProvider: _isProvider,
-                      step: _step,
-                    ),
+                    _HeaderBlock(isProvider: _isProvider, step: _step),
                     const SizedBox(height: 18),
 
-                    // Forms
                     Expanded(
                       child: _isProvider
                           ? PageView(
@@ -169,34 +245,32 @@ class _SignUpFlowScreenState extends State<SignUpFlowScreen> {
                               children: [
                                 _ProviderPersonalForm(
                                   fullNameCtrl: _fullNameCtrl,
-                                  emailCtrl: _emailCtrl,
-                                  phoneCtrl: _phoneCtrl,
-                                  passCtrl: _passCtrl,
-                                  pass2Ctrl: _pass2Ctrl,
+                                  emailCtrl:    _emailCtrl,
+                                  phoneCtrl:    _phoneCtrl,
+                                  passCtrl:     _passCtrl,
+                                  pass2Ctrl:    _pass2Ctrl,
                                 ),
                                 _ProviderProfessionalForm(
-                                  category: _category,
-                                  onCategoryChanged: (v) =>
-                                      setState(() => _category = v),
-                                  cityCtrl: _cityCtrl,
-                                  addressCtrl: _addressCtrl,
-                                  bioCtrl: _bioCtrl,
+                                  category:          _category,
+                                  onCategoryChanged: (v) => setState(() => _category = v),
+                                  cityCtrl:          _cityCtrl,
+                                  addressCtrl:       _addressCtrl,
+                                  bioCtrl:           _bioCtrl,
                                 ),
                               ],
                             )
                           : _ClientForm(
                               fullNameCtrl: _fullNameCtrl,
-                              emailCtrl: _emailCtrl,
-                              phoneCtrl: _phoneCtrl,
-                              passCtrl: _passCtrl,
-                              pass2Ctrl: _pass2Ctrl,
-                              addressCtrl: _addressCtrl,
+                              emailCtrl:    _emailCtrl,
+                              phoneCtrl:    _phoneCtrl,
+                              passCtrl:     _passCtrl,
+                              pass2Ctrl:    _pass2Ctrl,
+                              addressCtrl:  _addressCtrl,
                             ),
                     ),
 
                     const SizedBox(height: 14),
 
-                    // Primary button
                     _PrimaryBottomButton(
                       label: _isProvider
                           ? (_step == 0 ? "Suivant" : "Créer mon compte")
@@ -204,7 +278,8 @@ class _SignUpFlowScreenState extends State<SignUpFlowScreen> {
                       icon: _isProvider && _step == 0
                           ? Icons.arrow_forward_rounded
                           : null,
-                      onPressed: _onPrimary,
+                      isLoading: _isLoading,
+                      onPressed: _isLoading ? () {} : _onPrimary,
                     ),
 
                     const SizedBox(height: 14),
@@ -227,10 +302,7 @@ class _HeaderBlock extends StatelessWidget {
   final bool isProvider;
   final int step;
 
-  const _HeaderBlock({
-    required this.isProvider,
-    required this.step,
-  });
+  const _HeaderBlock({required this.isProvider, required this.step});
 
   @override
   Widget build(BuildContext context) {
@@ -270,7 +342,7 @@ class _HeaderBlock extends StatelessWidget {
   }
 }
 
-// ===================== CLIENT FORM (1 PAGE) =====================
+// ===================== CLIENT FORM =====================
 
 class _ClientForm extends StatelessWidget {
   final TextEditingController fullNameCtrl;
@@ -295,50 +367,17 @@ class _ClientForm extends StatelessWidget {
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
         children: [
-          _InputBox(
-            controller: fullNameCtrl,
-            hint: "Nom complet",
-            icon: Icons.person_outline,
-          ),
+          _InputBox(controller: fullNameCtrl, hint: "Nom complet",           icon: Icons.person_outline),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: emailCtrl,
-            hint: "Email",
-            icon: Icons.email_outlined,
-            keyboardType: TextInputType.emailAddress,
-          ),
+          _InputBox(controller: emailCtrl,    hint: "Email",                  icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: phoneCtrl,
-            hint: "Téléphone",
-            icon: Icons.phone_outlined,
-            keyboardType: TextInputType.phone,
-          ),
+          _InputBox(controller: phoneCtrl,    hint: "Téléphone",              icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: passCtrl,
-            hint: "Mot de passe",
-            icon: Icons.lock_outline,
-            isPassword: true,
-          ),
+          _InputBox(controller: passCtrl,     hint: "Mot de passe",           icon: Icons.lock_outline, isPassword: true),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: pass2Ctrl,
-            hint: "Confirmer mot de passe",
-            icon: Icons.lock_outline,
-            isPassword: true,
-          ),
+          _InputBox(controller: pass2Ctrl,    hint: "Confirmer mot de passe", icon: Icons.lock_outline, isPassword: true),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: addressCtrl,
-            hint: "Adresse",
-            icon: Icons.location_on_outlined,
-          ),
+          _InputBox(controller: addressCtrl,  hint: "Adresse",                icon: Icons.location_on_outlined),
         ],
       ),
     );
@@ -368,43 +407,15 @@ class _ProviderPersonalForm extends StatelessWidget {
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
         children: [
-          _InputBox(
-            controller: fullNameCtrl,
-            hint: "Nom complet",
-            icon: Icons.person_outline,
-          ),
+          _InputBox(controller: fullNameCtrl, hint: "Nom complet",           icon: Icons.person_outline),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: emailCtrl,
-            hint: "Email",
-            icon: Icons.email_outlined,
-            keyboardType: TextInputType.emailAddress,
-          ),
+          _InputBox(controller: emailCtrl,    hint: "Email",                  icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: phoneCtrl,
-            hint: "Téléphone",
-            icon: Icons.phone_outlined,
-            keyboardType: TextInputType.phone,
-          ),
+          _InputBox(controller: phoneCtrl,    hint: "Téléphone",              icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: passCtrl,
-            hint: "Mot de passe",
-            icon: Icons.lock_outline,
-            isPassword: true,
-          ),
+          _InputBox(controller: passCtrl,     hint: "Mot de passe",           icon: Icons.lock_outline, isPassword: true),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: pass2Ctrl,
-            hint: "Confirmez mot de passe",
-            icon: Icons.lock_outline,
-            isPassword: true,
-          ),
+          _InputBox(controller: pass2Ctrl,    hint: "Confirmez mot de passe", icon: Icons.lock_outline, isPassword: true),
         ],
       ),
     );
@@ -439,37 +450,17 @@ class _ProviderProfessionalForm extends StatelessWidget {
             hint: "Catégorie",
             icon: Icons.work_outline,
             items: const [
-              "Plombier",
-              "Électricien",
-              "Mécanicien",
-              "Femme de ménage",
-              "Professeur",
-              "Développeur",
+              "Plombier", "Électricien", "Mécanicien",
+              "Femme de ménage", "Professeur", "Développeur",
             ],
             onChanged: onCategoryChanged,
           ),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: cityCtrl,
-            hint: "Ville / Zone",
-            icon: Icons.location_city_outlined,
-          ),
+          _InputBox(controller: cityCtrl,    hint: "Ville / Zone", icon: Icons.location_city_outlined),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: addressCtrl,
-            hint: "Adresse",
-            icon: Icons.location_on_outlined,
-          ),
+          _InputBox(controller: addressCtrl, hint: "Adresse",      icon: Icons.location_on_outlined),
           const SizedBox(height: 14),
-
-          _InputBox(
-            controller: bioCtrl,
-            hint: "Description (ex: 5 ans d'expérience...)",
-            icon: Icons.description_outlined,
-            maxLines: 3,
-          ),
+          _InputBox(controller: bioCtrl,     hint: "Description (ex: 5 ans d'expérience...)", icon: Icons.description_outlined, maxLines: 3),
         ],
       ),
     );
@@ -518,17 +509,12 @@ class _InputBoxState extends State<_InputBox> {
       ),
       decoration: InputDecoration(
         hintText: widget.hint,
-        hintStyle: TextStyle(
-          color: Colors.grey.shade600,
-          fontWeight: FontWeight.w600,
-        ),
+        hintStyle: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
         prefixIcon: Icon(widget.icon, color: Colors.grey.shade600),
         suffixIcon: widget.isPassword
             ? IconButton(
                 icon: Icon(
-                  _obscure
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
+                  _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                   color: Colors.grey.shade600,
                 ),
                 onPressed: () => setState(() => _obscure = !_obscure),
@@ -536,10 +522,7 @@ class _InputBoxState extends State<_InputBox> {
             : null,
         filled: true,
         fillColor: Colors.white.withOpacity(0.92),
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: isMultiLine ? 16 : 16,
-        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: isMultiLine ? 16 : 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -611,16 +594,18 @@ class _DropdownBox extends StatelessWidget {
   }
 }
 
-// ===================== PRIMARY BUTTON (BOTTOM) =====================
+// ===================== PRIMARY BUTTON =====================
 
 class _PrimaryBottomButton extends StatelessWidget {
   final String label;
   final IconData? icon;
+  final bool isLoading;
   final VoidCallback onPressed;
 
   const _PrimaryBottomButton({
     required this.label,
     required this.onPressed,
+    required this.isLoading,
     this.icon,
   });
 
@@ -636,26 +621,27 @@ class _PrimaryBottomButton extends StatelessWidget {
           foregroundColor: Colors.white,
           elevation: 6,
           shadowColor: Colors.black.withOpacity(0.20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
+        child: isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                  ),
+                  if (icon != null) ...[
+                    const SizedBox(width: 10),
+                    Icon(icon, size: 20),
+                  ],
+                ],
               ),
-            ),
-            if (icon != null) ...[
-              const SizedBox(width: 10),
-              Icon(icon, size: 20),
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -675,19 +661,13 @@ class _BottomLogin extends StatelessWidget {
       children: [
         const Text(
           "Already have an account? ",
-          style: TextStyle(
-            color: Color(0xFF64748B),
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700),
         ),
         GestureDetector(
           onTap: onTapLogin,
           child: const Text(
             "Log In",
-            style: TextStyle(
-              color: Color(0xFF2563EB),
-              fontWeight: FontWeight.w900,
-            ),
+            style: TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w900),
           ),
         ),
       ],

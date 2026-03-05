@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'signup_role_screen.dart';
+import '../services/api_services.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -22,17 +23,19 @@ class _SignInScreenState extends State<SignInScreen>
   final _passCtrl = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+
+    _testBackend();
 
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 950),
     );
 
-    // Logo slides up (center -> top)
     _logoY = Tween<double>(begin: 50, end: -140).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
@@ -41,7 +44,6 @@ class _SignInScreenState extends State<SignInScreen>
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
     );
 
-    // Form slides up later (bottom -> place)
     _formY = Tween<double>(begin: 220, end: 0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -53,11 +55,18 @@ class _SignInScreenState extends State<SignInScreen>
       curve: const Interval(0.25, 1.0, curve: Curves.easeOut),
     );
 
-    // Start after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _controller.forward();
+      if (mounted) _controller.forward();
     });
+  }
+
+  Future<void> _testBackend() async {
+    try {
+      final msg = await ApiService.pingBackend();
+      print("✅ BACKEND CONNECTED: $msg");
+    } catch (e) {
+      print("❌ BACKEND ERROR: $e");
+    }
   }
 
   @override
@@ -69,9 +78,41 @@ class _SignInScreenState extends State<SignInScreen>
   }
 
   void _togglePassword() {
-    setState(() {
-      _obscurePassword = !_obscurePassword;
-    });
+    setState(() => _obscurePassword = !_obscurePassword);
+  }
+
+  Future<void> _handleSignIn() async {
+    if (_emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
+      _showMessage("Please fill all fields");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await ApiService.login(
+        _emailCtrl.text.trim(),
+        _passCtrl.text,
+      );
+
+      if (!mounted) return;
+
+      _showMessage(result["message"]);
+
+      if (result["success"] == true) {
+        // TODO: Navigator.pushReplacement(...)
+      }
+    } catch (_) {
+      if (mounted) _showMessage("Connection error — check your network");
+    }
+
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
   }
 
   @override
@@ -82,23 +123,17 @@ class _SignInScreenState extends State<SignInScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // Background image
           Positioned.fill(
             child: Image.asset(
               'assets/images/bg.png',
               fit: BoxFit.cover,
-              
             ),
           ),
-
-          // Global tint overlay
           Positioned.fill(
             child: Container(
               color: primaryBlue.withOpacity(0.25),
             ),
           ),
-
-          // Gradient overlay
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -113,14 +148,12 @@ class _SignInScreenState extends State<SignInScreen>
               ),
             ),
           ),
-
           SafeArea(
             child: AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
                 return Stack(
                   children: [
-                    // LOGO (slides up)
                     Align(
                       alignment: Alignment.center,
                       child: Opacity(
@@ -135,8 +168,6 @@ class _SignInScreenState extends State<SignInScreen>
                         ),
                       ),
                     ),
-
-                    // FORM (slides up from bottom)
                     Align(
                       alignment: Alignment.bottomCenter,
                       child: Opacity(
@@ -147,22 +178,19 @@ class _SignInScreenState extends State<SignInScreen>
                             emailCtrl: _emailCtrl,
                             passCtrl: _passCtrl,
                             obscurePassword: _obscurePassword,
+                            isLoading: _isLoading,
                             onTogglePassword: _togglePassword,
-                            onSignIn: () {
-                              // TODO: implement sign in
+                            onSignIn: _isLoading ? null : _handleSignIn,
+                            onForgot: () {},
+                            onGoToSignUp: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const SignUpRoleScreen(),
+                                ),
+                              );
                             },
-                            onForgot: () {
-                              // TODO: navigate to forgot password
-                            },
-                           onGoToSignUp: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SignUpRoleScreen(),
-                              ),
-                            );
-                          },
-                                                    ),
+                          ),
                         ),
                       ),
                     ),
@@ -180,11 +208,10 @@ class _SignInScreenState extends State<SignInScreen>
 class _SignInCard extends StatelessWidget {
   final TextEditingController emailCtrl;
   final TextEditingController passCtrl;
-
   final bool obscurePassword;
+  final bool isLoading;
   final VoidCallback onTogglePassword;
-
-  final VoidCallback onSignIn;
+  final VoidCallback? onSignIn;
   final VoidCallback onForgot;
   final VoidCallback onGoToSignUp;
 
@@ -192,6 +219,7 @@ class _SignInCard extends StatelessWidget {
     required this.emailCtrl,
     required this.passCtrl,
     required this.obscurePassword,
+    required this.isLoading,
     required this.onTogglePassword,
     required this.onSignIn,
     required this.onForgot,
@@ -209,7 +237,8 @@ class _SignInCard extends StatelessWidget {
           borderSide: BorderSide.none,
           borderRadius: BorderRadius.circular(14),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         suffixIcon: suffixIcon,
       );
     }
@@ -252,7 +281,9 @@ class _SignInCard extends StatelessWidget {
                 icon: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   child: Icon(
-                    obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    obscurePassword
+                        ? Icons.visibility_off
+                        : Icons.visibility,
                     key: ValueKey(obscurePassword),
                     color: Colors.grey[600],
                   ),
@@ -286,14 +317,23 @@ class _SignInCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: const Text(
-                "Sign in",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      "Sign in",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 10),

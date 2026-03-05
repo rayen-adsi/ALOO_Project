@@ -160,6 +160,12 @@ class _SignUpFlowScreenState extends State<SignUpFlowScreen> {
 
     try {
       final result = await ApiService.signupProviderStep2(
+        // Step 1 data — passed so Flask can save the full provider
+        fullName: _fullNameCtrl.text.trim(),
+        email:    _emailCtrl.text.trim(),
+        phone:    _phoneCtrl.text.trim(),
+        password: _passCtrl.text,
+        // Step 2 data
         category: _category ?? "",
         city:     _cityCtrl.text.trim(),
         address:  _addressCtrl.text.trim(),

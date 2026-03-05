@@ -32,6 +32,8 @@ class ApiService {
       return {
         "success": data["success"] == true,
         "message": data["message"] ?? "Unknown error",
+        "role":     data["role"] ?? "",
+        "fullName": data["full_name"] ?? "",
       };
     } catch (e) {
       return {"success": false, "message": "Connection failed"};
@@ -54,11 +56,11 @@ class ApiService {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "full_name": fullName,
-          "email": email,
-          "phone": phone,
-          "password": password,
+          "email":     email,
+          "phone":     phone,
+          "password":  password,
           "password2": password2,
-          "address": address,
+          "address":   address,
         }),
       );
       final data = jsonDecode(res.body);
@@ -86,9 +88,9 @@ class ApiService {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "full_name": fullName,
-          "email": email,
-          "phone": phone,
-          "password": password,
+          "email":     email,
+          "phone":     phone,
+          "password":  password,
           "password2": password2,
         }),
       );
@@ -105,6 +107,10 @@ class ApiService {
   // ===================== PROVIDER SIGNUP STEP 2 =====================
 
   static Future<Map<String, dynamic>> signupProviderStep2({
+    required String fullName,
+    required String email,
+    required String phone,
+    required String password,
     required String category,
     required String city,
     required String address,
@@ -115,10 +121,14 @@ class ApiService {
         Uri.parse("$baseUrl/auth/signup/provider/step2"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "category": category,
-          "city": city,
-          "address": address,
-          "bio": bio,
+          "full_name": fullName,
+          "email":     email,
+          "phone":     phone,
+          "password":  password,
+          "category":  category,
+          "city":      city,
+          "address":   address,
+          "bio":       bio,
         }),
       );
       final data = jsonDecode(res.body);

@@ -11,7 +11,7 @@ CORS(app)
 
 # ===================== DATABASE CONFIG =====================
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://aloo_user:aloo1234@localhost/aloo_db"
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:rayen123@localhost/aloo_db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db      = SQLAlchemy(app)
@@ -76,7 +76,7 @@ def is_valid_phone(phone):
 
 VALID_CATEGORIES = [
     "Plombier", "Électricien", "Mécanicien",
-    "Femme de ménage", "Professeur", "Développeur"
+    "Femme de ménage", "Professeur", "Développeur","Réparation domicile" 
 ]
 
 # ===================== ROUTES =====================
@@ -252,7 +252,13 @@ def signup_provider_step2():
     db.session.commit()
 
     return jsonify({"success": True, "message": "Provider account created successfully"})
-
+@app.route("/providers", methods=["GET"])
+def get_providers():
+    providers = Provider.query.all()
+    return jsonify([{
+        "id": p.id, "full_name": p.full_name,
+        "category": p.category, "city": p.city, "bio": p.bio,
+    } for p in providers])
 
 if __name__ == "__main__":
     with app.app_context():

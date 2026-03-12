@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = "http://127.0.0.1:5000";
+  static const String baseUrl = "http://192.168.0.184:5000";
 
   // ===================== PING =====================
 
@@ -30,10 +30,11 @@ class ApiService {
       );
       final data = jsonDecode(res.body);
       return {
-        "success": data["success"] == true,
-        "message": data["message"] ?? "Unknown error",
-        "role":     data["role"] ?? "",
-        "fullName": data["full_name"] ?? "",
+        "success":   data["success"] == true,
+        "message":   data["message"]   ?? "Unknown error",
+        "role":      data["role"]      ?? "",
+        "full_name": data["full_name"] ?? "", // ✅ fixed: was "fullName", must match backend key
+        "email":     data["email"]     ?? "",
       };
     } catch (e) {
       return {"success": false, "message": "Connection failed"};
@@ -138,6 +139,25 @@ class ApiService {
       };
     } catch (e) {
       return {"success": false, "message": "Connection failed"};
+    }
+  }
+
+  // ===================== GET PROVIDERS =====================
+
+  static Future<List<Map<String, dynamic>>> getProviders() async {
+    try {
+      final res = await http.get(
+        Uri.parse("$baseUrl/providers"),
+        headers: {"Content-Type": "application/json"},
+      );
+      if (res.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(res.body);
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        throw Exception("Failed to load providers");
+      }
+    } catch (e) {
+      throw Exception("Connection failed: $e");
     }
   }
 }

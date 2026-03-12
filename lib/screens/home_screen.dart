@@ -1,0 +1,908 @@
+// lib/screens/home_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../core/l10n/language_provider.dart';
+import '../services/api_services.dart';
+import 'settings_screen.dart';
+
+class homeScreen extends StatefulWidget {
+  final String fullName;
+  const homeScreen({super.key, this.fullName = ''});
+
+  @override
+  State<homeScreen> createState() => _homeScreenState();
+}
+
+class _homeScreenState extends State<homeScreen>
+    with SingleTickerProviderStateMixin {
+  int _currentNav = 0;
+  late final AnimationController _entryCtrl;
+  late final Animation<double> _headerFade;
+  late final Animation<Offset> _headerSlide;
+  late final Animation<double> _searchFade;
+  late final Animation<Offset> _searchSlide;
+  late final Animation<double> _catFade;
+  late final Animation<double> _cardsFade;
+  late final Animation<Offset> _cardsSlide;
+
+  @override
+  void initState() {
+    super.initState();
+    _entryCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _headerFade = CurvedAnimation(parent: _entryCtrl,
+        curve: const Interval(0.00, 0.45, curve: Curves.easeOut));
+    _headerSlide = Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _entryCtrl,
+            curve: const Interval(0.00, 0.50, curve: Curves.easeOutCubic)));
+
+    _searchFade = CurvedAnimation(parent: _entryCtrl,
+        curve: const Interval(0.15, 0.55, curve: Curves.easeOut));
+    _searchSlide = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _entryCtrl,
+            curve: const Interval(0.15, 0.55, curve: Curves.easeOutCubic)));
+
+    _catFade = CurvedAnimation(parent: _entryCtrl,
+        curve: const Interval(0.30, 0.70, curve: Curves.easeOut));
+
+    _cardsFade = CurvedAnimation(parent: _entryCtrl,
+        curve: const Interval(0.45, 1.00, curve: Curves.easeOut));
+    _cardsSlide = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _entryCtrl,
+            curve: const Interval(0.45, 1.00, curve: Curves.easeOutCubic)));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _entryCtrl.forward();
+      _fetchProviders();
+    });
+  }
+
+  Future<void> _fetchProviders() async {
+    try {
+      final data = await ApiService.getProviders();
+      if (!mounted) return;
+      setState(() {
+        _providers = data.map((p) {
+          final category = p['category'] as String? ?? '';
+          return {
+            'name':    p['full_name'] ?? '',
+            'job_key': _categoryToKey[category] ?? 'cat_home_repair',
+            'city':    p['city'] ?? '',
+            'rating':  0.0,
+            'top':     false,
+            'color':   _categoryColors[category] ?? const Color(0xFF1A6B9A),
+          };
+        }).toList();
+        _loadingProviders = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _providersError = 'Could not load providers';
+        _loadingProviders = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _entryCtrl.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> _providers = [];
+  bool _loadingProviders = true;
+  String? _providersError;
+
+  static const Map<String, Color> _categoryColors = {
+    'Plombier':            Color(0xFF1A6B9A),
+    'Électricien':         Color(0xFFF59E0B),
+    'Mécanicien':          Color(0xFF64748B),
+    'Femme de ménage':     Color(0xFFEC4899),
+    'Professeur':          Color(0xFF10B981),
+    'Développeur':         Color(0xFF8B5CF6),
+    'Réparation domicile': Color(0xFF4A3580),
+  };
+
+  static const Map<String, String> _categoryToKey = {
+    'Plombier':            'cat_plumber',
+    'Électricien':         'cat_electrician',
+    'Mécanicien':          'cat_mechanic',
+    'Femme de ménage':     'cat_cleaner',
+    'Professeur':          'cat_tutor',
+    'Développeur':         'cat_developer',
+    'Réparation domicile': 'cat_home_repair',
+  };
+
+  static const List<Map<String, dynamic>> _categories = [
+    {'key': 'cat_plumber',     'icon': Icons.water_drop_outlined,          'color': Color(0xFF0EA5E9)},
+    {'key': 'cat_electrician', 'icon': Icons.bolt_outlined,                'color': Color(0xFFF59E0B)},
+    {'key': 'cat_mechanic',    'icon': Icons.build_outlined,               'color': Color(0xFF64748B)},
+    {'key': 'cat_home_repair', 'icon': Icons.home_repair_service_outlined, 'color': Color(0xFF10B981)},
+    {'key': 'cat_cleaner',     'icon': Icons.cleaning_services_outlined,   'color': Color(0xFFEC4899)},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>();
+
+    final List<Widget> tabs = [
+      // 0 — Home
+      Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset('assets/images/bg.png', fit: BoxFit.cover),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withOpacity(0.05),
+                    Colors.white.withOpacity(0.75),
+                    Colors.white.withOpacity(0.95),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Column(
+            children: [
+              _TopBar(
+                fadeAnim: _headerFade,
+                slideAnim: _headerSlide,
+                lang: lang,
+                fullName: widget.fullName,
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FadeTransition(
+                        opacity: _searchFade,
+                        child: SlideTransition(
+                          position: _searchSlide,
+                          child: _SearchBar(lang: lang),
+                        ),
+                      ),
+                      FadeTransition(
+                        opacity: _catFade,
+                        child: _CategoriesRow(categories: _categories, lang: lang),
+                      ),
+                      FadeTransition(
+                        opacity: _cardsFade,
+                        child: SlideTransition(
+                          position: _cardsSlide,
+                          child: _loadingProviders
+                              ? const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 40),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      color: Color(0xFF2A5298),
+                                      strokeWidth: 2.5,
+                                    ),
+                                  ),
+                                )
+                              : _providersError != null
+                                  ? Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Column(
+                                        children: [
+                                          Icon(Icons.wifi_off_rounded,
+                                              color: Colors.grey.shade400,
+                                              size: 40),
+                                          const SizedBox(height: 10),
+                                          Text(_providersError!,
+                                              style: TextStyle(color: Colors.grey.shade500)),
+                                          const SizedBox(height: 12),
+                                          TextButton(
+                                            onPressed: () {
+                                              setState(() {
+                                                _loadingProviders = true;
+                                                _providersError = null;
+                                              });
+                                              _fetchProviders();
+                                            },
+                                            child: const Text('Retry'),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : _RecommendedSection(
+                                      providers: _providers, lang: lang),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // 1 — Favourites (placeholder)
+      const Center(child: Icon(Icons.favorite_border_rounded, size: 60, color: Colors.grey)),
+
+      // 2 — Map (placeholder)
+      const Center(child: Icon(Icons.location_on_outlined, size: 60, color: Colors.grey)),
+
+      // 3 — Chat (placeholder)
+      const Center(child: Icon(Icons.chat_bubble_outline_rounded, size: 60, color: Colors.grey)),
+
+      // 4 — Settings
+      const SettingsScreen(),
+    ];
+
+    return Directionality(
+      textDirection: lang.textDirection,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        // ✅ FIX 1: IndexedStack keeps bottom nav visible on all tabs
+        body: IndexedStack(
+          index: _currentNav,
+          children: tabs,
+        ),
+        // ✅ FIX 2: simple onTap, no Navigator.push needed
+        bottomNavigationBar: _BottomNav(
+          currentIndex: _currentNav,
+          onTap: (i) => setState(() => _currentNav = i),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOP BAR
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TopBar extends StatelessWidget {
+  final Animation<double> fadeAnim;
+  final Animation<Offset> slideAnim;
+  final LanguageProvider lang;
+  final String fullName;
+
+  const _TopBar({
+    required this.fadeAnim,
+    required this.slideAnim,
+    required this.lang,
+    required this.fullName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: fadeAnim,
+      child: SlideTransition(
+        position: slideAnim,
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
+            child: Row(
+              children: [
+                Image.asset(
+                  'assets/images/aloo_logo.png',
+                  height: 60,
+                  fit: BoxFit.contain,
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    Text(
+                      fullName.isNotEmpty ? fullName : 'Nom et Prénom',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Color.fromARGB(255, 255, 255, 255),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF2A5298).withOpacity(0.10),
+                        border: Border.all(
+                            color: const Color(0xFF2A5298).withOpacity(0.25),
+                            width: 1.5),
+                      ),
+                      child: const Icon(Icons.person_rounded,
+                          color: Color(0xFF2A5298), size: 22),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEARCH BAR
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SearchBar extends StatelessWidget {
+  final LanguageProvider lang;
+  const _SearchBar({required this.lang});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.07),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 14),
+            Icon(Icons.search_rounded,
+                color: const Color(0xFF2A5298).withOpacity(0.7), size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                lang.t('search_placeholder'),
+                style: TextStyle(
+                  fontSize: 14.5,
+                  color: Colors.grey.shade400,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CATEGORIES ROW
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CategoriesRow extends StatelessWidget {
+  final List<Map<String, dynamic>> categories;
+  final LanguageProvider lang;
+
+  const _CategoriesRow({required this.categories, required this.lang});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            ...categories.map((cat) => _CategoryChip(
+                  icon: cat['icon'] as IconData,
+                  label: lang.t(cat['key'] as String),
+                  color: cat['color'] as Color,
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _CategoryChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  State<_CategoryChip> createState() => _CategoryChipState();
+}
+
+class _CategoryChipState extends State<_CategoryChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.93 : 1.0,
+        duration: const Duration(milliseconds: 130),
+        child: Container(
+          margin: const EdgeInsets.only(right: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withOpacity(0.15),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: widget.color.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(widget.icon, color: widget.color, size: 22),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.label,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MoreChip extends StatelessWidget {
+  final LanguageProvider lang;
+  const _MoreChip({required this.lang});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(right: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: const Color(0xFF6B7280).withOpacity(0.10),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.more_horiz_rounded,
+                color: Color(0xFF6B7280), size: 22),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            lang.t('others'),
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RECOMMENDED SECTION
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RecommendedSection extends StatelessWidget {
+  final List<Map<String, dynamic>> providers;
+  final LanguageProvider lang;
+
+  const _RecommendedSection({
+    required this.providers,
+    required this.lang,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF1A3A6B), Color(0xFF2A5298)],
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                lang.t('recommended'),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.72,
+            ),
+            itemCount: providers.length,
+            itemBuilder: (_, i) => _ProviderCard(
+              data: providers[i],
+              lang: lang,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROVIDER CARD
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ProviderCard extends StatefulWidget {
+  final Map<String, dynamic> data;
+  final LanguageProvider lang;
+
+  const _ProviderCard({required this.data, required this.lang});
+
+  @override
+  State<_ProviderCard> createState() => _ProviderCardState();
+}
+
+class _ProviderCardState extends State<_ProviderCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.data;
+    final lang = widget.lang;
+    final bool isTop = data['top'] as bool;
+    final Color avatarColor = data['color'] as Color;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 130),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.07),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  Container(
+                    height: 110,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          avatarColor.withOpacity(0.85),
+                          avatarColor,
+                        ],
+                      ),
+                      borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(18)),
+                    ),
+                    child: const Icon(Icons.person_rounded,
+                        color: Colors.white54, size: 56),
+                  ),
+                  if (isTop)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF6B35).withOpacity(0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.verified_rounded,
+                                color: Colors.white, size: 11),
+                            const SizedBox(width: 3),
+                            Text(
+                              lang.t('top_provider'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data['name'] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        lang.t(data['job_key'] as String),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color.fromARGB(255, 55, 56, 57).withOpacity(0.85),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          const Icon(Icons.star_rounded,
+                              color: Color(0xFFFBBF24), size: 14),
+                          const SizedBox(width: 3),
+                          Text(
+                            (data['rating'] != null && data['rating'] != 0.0)
+                                ? data['rating'].toString()
+                                : 'New',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color.fromARGB(255, 125, 125, 125),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.location_on_rounded,
+                              color: Color.fromARGB(255, 125, 125, 125), size: 12),
+                          const SizedBox(width: 2),
+                          Expanded(
+                            child: Text(
+                              data['city'] as String,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color.fromARGB(255, 125, 125, 125),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              child: Container(
+                                height: 30,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: const Color.fromARGB(255, 33, 116, 252),
+                                    width: 1.3,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    lang.t('contact'),
+                                    style: const TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color.fromARGB(255, 33, 116, 252),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: GestureDetector(
+                              child: Container(
+                                height: 30,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color.fromARGB(255, 33, 116, 252),
+                                      Color.fromARGB(255, 33, 116, 252),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    lang.t('view_profile'),
+                                    style: const TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM NAV
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BottomNav extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  const _BottomNav({required this.currentIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      {'icon': Icons.home_outlined,              'active': Icons.home_rounded},
+      {'icon': Icons.favorite_border_rounded,    'active': Icons.favorite_rounded},
+      {'icon': Icons.location_on_outlined,       'active': Icons.location_on_rounded},
+      {'icon': Icons.chat_bubble_outline_rounded,'active': Icons.chat_bubble_rounded},
+      {'icon': Icons.settings_outlined,          'active': Icons.settings_rounded},
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(items.length, (i) {
+              final isActive = currentIndex == i;
+              return GestureDetector(
+                onTap: () => onTap(i),
+                behavior: HitTestBehavior.opaque,
+                child: SizedBox(
+                  width: 52,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: isActive ? 40 : 0,
+                        height: isActive ? 4 : 0,
+                        margin: const EdgeInsets.only(bottom: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      Icon(
+                        isActive
+                            ? items[i]['active'] as IconData
+                            : items[i]['icon'] as IconData,
+                        // ✅ active = black, inactive = grey
+                        color: isActive
+                            ? Colors.black
+                            : const Color.fromARGB(255, 0, 0, 0),
+                        size: 24,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+}

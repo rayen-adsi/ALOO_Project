@@ -1,7 +1,9 @@
+// lib/screens/app_start.dart
+
 import 'package:flutter/material.dart';
-import '../core/storage/local_storage.dart';
-import 'onboarding_screen.dart';
-import 'auth_screen.dart';
+import 'package:aloo_app/core/storage/local_storage.dart';
+import 'package:aloo_app/screens/onboarding_screen.dart';
+import 'package:aloo_app/screens/sign_in_screen.dart';
 
 class AppStart extends StatefulWidget {
   const AppStart({super.key});
@@ -14,7 +16,7 @@ class _AppStartState extends State<AppStart> {
   // ✅ DEV TOGGLE:
   // true  => Onboarding always shows (best while building)
   // false => Onboarding shows only once (production behavior)
-  static const bool kForceOnboarding = true;
+  static const bool kForceOnboarding = false;
 
   @override
   void initState() {
@@ -35,10 +37,10 @@ class _AppStartState extends State<AppStart> {
       return;
     }
 
-    // Later: if token exists -> go to Home
+    // Onboarding already seen → go straight to sign in
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const AuthScreen()),
+      MaterialPageRoute(builder: (_) => const SignInScreen()),
     );
   }
 

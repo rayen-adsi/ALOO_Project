@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/l10n/language_provider.dart';
 import '../core/storage/user_session.dart';
+import '../services/api_services.dart';
 import 'sign_in_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,11 +17,12 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String _fullName = '';
   String _email    = '';
+  String _role     = 'client';
+  int    _userId   = 0;
 
-  // Notification toggles
-  bool _notifBookings  = true;
-  bool _notifMessages  = true;
-  bool _notifPromo     = false;
+  bool _notifBookings = true;
+  bool _notifMessages = true;
+  bool _notifPromo    = false;
 
   @override
   void initState() {
@@ -29,12 +31,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadUser() async {
-    final name  = await UserSession.getFullName();
-    final email = await UserSession.getEmail();
+    final session = await UserSession.load();
     if (mounted) {
       setState(() {
-        _fullName = name  ?? '';
-        _email    = email ?? '';
+        _fullName = session['full_name'] ?? '';
+        _email    = session['email']     ?? '';
+        _role     = session['role']      ?? 'client';
+        _userId   = session['id']        ?? 0;
       });
     }
   }
@@ -80,72 +83,229 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showChangePassword() {
-    final lang       = context.read<LanguageProvider>();
-    final oldCtrl    = TextEditingController();
-    final newCtrl    = TextEditingController();
+    final lang        = context.read<LanguageProvider>();
+    final oldCtrl     = TextEditingController();
+    final newCtrl     = TextEditingController();
     final confirmCtrl = TextEditingController();
+    bool  isLoading   = false;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // drag handle
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(lang.t('change_password'),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A3A6B))),
+                const SizedBox(height: 20),
+                _PassField(ctrl: oldCtrl,     hint: lang.t('current_password')),
+                const SizedBox(height: 12),
+                _PassField(ctrl: newCtrl,     hint: lang.t('new_password')),
+                const SizedBox(height: 12),
+                _PassField(ctrl: confirmCtrl, hint: lang.t('confirm_password')),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A3A6B),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: isLoading ? null : () async {
+                      if (oldCtrl.text.isEmpty ||
+                          newCtrl.text.isEmpty ||
+                          confirmCtrl.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(lang.t('fill_all_fields'))),
+                        );
+                        return;
+                      }
+
+                      setSheetState(() => isLoading = true);
+
+                      Map<String, dynamic> result;
+                      if (_role == 'client') {
+                        result = await ApiService.changeClientPassword(
+                          clientId:        _userId,
+                          currentPassword: oldCtrl.text,
+                          newPassword:     newCtrl.text,
+                          newPassword2:    confirmCtrl.text,
+                        );
+                      } else {
+                        result = await ApiService.changeProviderPassword(
+                          providerId:      _userId,
+                          currentPassword: oldCtrl.text,
+                          newPassword:     newCtrl.text,
+                          newPassword2:    confirmCtrl.text,
+                        );
+                      }
+
+                      setSheetState(() => isLoading = false);
+
+                      if (!mounted) return;
+                      Navigator.pop(sheetCtx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(result['message'] ?? '')),
+                      );
+                    },
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 22, height: 22,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text(lang.t('save'),
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w700,
+                                color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteAccount() {
+    final lang     = context.read<LanguageProvider>();
+    final passCtrl = TextEditingController();
+    bool  isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(lang.t('change_password'),
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800,
-                      color: Color(0xFF1A3A6B))),
-              const SizedBox(height: 20),
-              _PassField(ctrl: oldCtrl,     hint: lang.t('current_password')),
-              const SizedBox(height: 12),
-              _PassField(ctrl: newCtrl,     hint: lang.t('new_password')),
-              const SizedBox(height: 12),
-              _PassField(ctrl: confirmCtrl, hint: lang.t('confirm_password')),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A3A6B),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                  onPressed: () {
-                    // TODO: wire to backend change password endpoint
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(lang.t('coming_soon'))),
-                    );
-                  },
-                  child: Text(lang.t('save'),
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700,
-                          color: Colors.white)),
+                const SizedBox(height: 20),
+                const Text('Delete Account',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800,
+                        color: Colors.red)),
+                const SizedBox(height: 8),
+                Text(
+                  'This action is permanent and cannot be undone. Enter your password to confirm.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                 ),
-              ),
-            ],
+                const SizedBox(height: 20),
+                _PassField(ctrl: passCtrl, hint: lang.t('password')),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: isLoading ? null : () async {
+                      if (passCtrl.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(lang.t('fill_all_fields'))),
+                        );
+                        return;
+                      }
+
+                      setSheetState(() => isLoading = true);
+
+                      Map<String, dynamic> result;
+                      if (_role == 'client') {
+                        result = await ApiService.deleteClient(
+                          clientId: _userId,
+                          password: passCtrl.text,
+                        );
+                      } else {
+                        result = await ApiService.deleteProvider(
+                          providerId: _userId,
+                          password:   passCtrl.text,
+                        );
+                      }
+
+                      setSheetState(() => isLoading = false);
+                      if (!mounted) return;
+
+                      if (result['success'] == true) {
+                        Navigator.pop(sheetCtx);
+                        await UserSession.clear();
+                        if (!mounted) return;
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SignInScreen()),
+                          (_) => false,
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(result['message'] ?? '')),
+                        );
+                        setSheetState(() => isLoading = false);
+                      }
+                    },
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 22, height: 22,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Delete My Account',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w700,
+                                color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -221,13 +381,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         child: Row(
                           children: [
-                            // Avatar
                             Container(
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(
+                              width: 56, height: 56,
+                              decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: const LinearGradient(
+                                gradient: LinearGradient(
                                   colors: [Color(0xFF1A3A6B), Color(0xFF2A5298)],
                                 ),
                               ),
@@ -254,6 +412,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       fontSize: 13,
                                       color: Colors.grey.shade500,
                                       fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  // Role badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _role == 'provider'
+                                          ? const Color(0xFF8B5CF6).withOpacity(0.12)
+                                          : const Color(0xFF2A5298).withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      _role == 'provider' ? 'Provider' : 'Client',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: _role == 'provider'
+                                            ? const Color(0xFF8B5CF6)
+                                            : const Color(0xFF2A5298),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -379,6 +559,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               iconColor: const Color(0xFF8B5CF6),
                               label: lang.t('change_password'),
                               onTap: _showChangePassword,
+                            ),
+                            _Divider(),
+                            _ActionRow(
+                              icon: Icons.delete_outline_rounded,
+                              iconColor: Colors.red.shade400,
+                              label: 'Delete Account',
+                              onTap: _showDeleteAccount,
                             ),
                           ],
                         ),

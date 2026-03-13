@@ -78,11 +78,11 @@ class _SignInScreenState extends State<SignInScreen>
       if (!mounted) return;
       _showMessage(result['message']);
       if (result['success'] == true) {
-        // Save session from login response
         await UserSession.save(
           fullName: result['full_name'] ?? '',
           email:    result['email']     ?? _emailCtrl.text.trim(),
           role:     result['role']      ?? 'client',
+          id:       result['id']        ?? 0,
         );
         if (!mounted) return;
         Navigator.pushReplacement(context,
@@ -137,7 +137,6 @@ class _SignInScreenState extends State<SignInScreen>
             SafeArea(
               child: Stack(
                 children: [
-                  // ── Animated logo + form ─────────────────────────
                   AnimatedBuilder(
                     animation: _controller,
                     builder: (context, _) {
@@ -170,9 +169,7 @@ class _SignInScreenState extends State<SignInScreen>
                                   onTogglePassword: () => setState(
                                       () => _obscurePassword =
                                           !_obscurePassword),
-                                  onSignIn: _isLoading
-                                      ? null
-                                      : _handleSignIn,
+                                  onSignIn: _isLoading ? null : _handleSignIn,
                                   onForgot: () {},
                                   onGoToSignUp: () => Navigator.push(
                                     context,
@@ -189,7 +186,6 @@ class _SignInScreenState extends State<SignInScreen>
                     },
                   ),
 
-                  // ── Language toggle top-right ────────────────────
                   Positioned(
                     top: 8,
                     right: 12,
@@ -204,8 +200,6 @@ class _SignInScreenState extends State<SignInScreen>
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _SignInCard extends StatelessWidget {
   final LanguageProvider lang;

@@ -1,5 +1,7 @@
 import re
-from flask import Flask, request, jsonify
+import os
+import uuid
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -12,12 +14,26 @@ CORS(app)
 
 # ===================== DATABASE CONFIG =====================
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://aloo_user:aloo1234@localhost/aloo_db"
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:rayen123@localhost/aloo_db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db      = SQLAlchemy(app)
 migrate = Migrate(app, db)
 bcrypt  = Bcrypt(app)
+
+# ===================== PHOTO UPLOAD CONFIG =====================
+
+UPLOAD_FOLDER      = 'uploads/profiles'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+MAX_FILE_SIZE      = 5 * 1024 * 1024  # 5 MB
+
+app.config['UPLOAD_FOLDER']         = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH']    = MAX_FILE_SIZE
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ===================== MODELS =====================
 
@@ -32,7 +48,6 @@ class Client(db.Model):
     profile_photo = db.Column(db.Text, nullable=True)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
-
 class Provider(db.Model):
     __tablename__  = "providers"
     id             = db.Column(db.Integer, primary_key=True)
@@ -45,24 +60,24 @@ class Provider(db.Model):
     address        = db.Column(db.String(255), nullable=False)
     bio            = db.Column(db.Text, nullable=False)
     profile_photo  = db.Column(db.Text, nullable=True)
+    skills         = db.Column(db.Text, nullable=True)   # JSON array of strings
+    portfolio      = db.Column(db.Text, nullable=True)   # JSON array of photo URLs
     rating         = db.Column(db.Float, default=0.0)
     total_reviews  = db.Column(db.Integer, default=0)
     is_verified    = db.Column(db.Boolean, default=False)
     is_active      = db.Column(db.Boolean, default=True)
     created_at     = db.Column(db.DateTime, default=datetime.utcnow)
 
-
 class Message(db.Model):
     __tablename__  = "messages"
     id             = db.Column(db.Integer, primary_key=True)
     sender_id      = db.Column(db.Integer, nullable=False)
-    sender_type    = db.Column(db.String(10), nullable=False)   # 'client' | 'provider'
+    sender_type    = db.Column(db.String(10), nullable=False)
     receiver_id    = db.Column(db.Integer, nullable=False)
-    receiver_type  = db.Column(db.String(10), nullable=False)   # 'client' | 'provider'
+    receiver_type  = db.Column(db.String(10), nullable=False)
     content        = db.Column(db.Text, nullable=False)
     is_read        = db.Column(db.Boolean, default=False)
     created_at     = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 class Favorite(db.Model):
     __tablename__ = "favorites"
@@ -71,7 +86,6 @@ class Favorite(db.Model):
     client_id   = db.Column(db.Integer, nullable=False)
     provider_id = db.Column(db.Integer, nullable=False)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 class Review(db.Model):
     __tablename__ = "reviews"
@@ -82,17 +96,15 @@ class Review(db.Model):
     comment     = db.Column(db.Text, nullable=True)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
 
-
 class Notification(db.Model):
     __tablename__ = "notifications"
     id          = db.Column(db.Integer, primary_key=True)
     user_id     = db.Column(db.Integer, nullable=False)
-    user_type   = db.Column(db.String(10), nullable=False)   # 'client' | 'provider'
-    type        = db.Column(db.String(30), nullable=False)   # 'new_message' | 'new_review'
+    user_type   = db.Column(db.String(10), nullable=False)
+    type        = db.Column(db.String(30), nullable=False)
     message     = db.Column(db.Text, nullable=False)
     is_read     = db.Column(db.Boolean, default=False)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 # ===================== HELPERS =====================
 
@@ -127,7 +139,7 @@ def update_provider_rating(provider_id):
     avg     = round(sum(r.rating for r in reviews) / count, 2) if count > 0 else 0.0
     provider = Provider.query.get(provider_id)
     if provider:
-        provider.rating       = avg
+        provider.rating        = avg
         provider.total_reviews = count
         db.session.commit()
 
@@ -141,6 +153,89 @@ VALID_CATEGORIES = [
 @app.route("/ping")
 def ping():
     return ok(message="Backend connected")
+
+# ===================== PHOTO UPLOAD =====================
+
+@app.route('/upload/profile-photo', methods=['POST'])
+def upload_profile_photo():
+    if 'file' not in request.files:
+        return err('No file provided')
+
+    file    = request.files['file']
+    user_id = request.form.get('user_id', type=int)
+    role    = request.form.get('role', 'client')
+
+    if not file or file.filename == '':
+        return err('No file selected')
+    if not allowed_file(file.filename):
+        return err('File type not allowed. Use JPG, PNG or WEBP')
+    if not user_id:
+        return err('user_id is required')
+
+    # Unique filename
+    ext      = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"{role}_{user_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+    # Delete previous photo for this user
+    for f in os.listdir(app.config['UPLOAD_FOLDER']):
+        if f.startswith(f"{role}_{user_id}_"):
+            try:
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], f))
+            except Exception:
+                pass
+
+    file.save(filepath)
+
+    photo_url = f"http://192.168.0.184:5000/uploads/profiles/{filename}"
+
+    if role == 'client':
+        c = Client.query.get(user_id)
+        if c:
+            c.profile_photo = photo_url
+            db.session.commit()
+    else:
+        p = Provider.query.get(user_id)
+        if p:
+            p.profile_photo = photo_url
+            db.session.commit()
+
+    return ok({'photo_url': photo_url}, 'Photo uploaded successfully')
+
+
+@app.route('/uploads/profiles/<filename>')
+def serve_photo(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+
+@app.route('/upload/profile-photo', methods=['DELETE'])
+def delete_profile_photo():
+    data    = request.json
+    user_id = data.get('user_id')
+    role    = data.get('role', 'client')
+
+    if not user_id:
+        return err('user_id is required')
+
+    for f in os.listdir(app.config['UPLOAD_FOLDER']):
+        if f.startswith(f"{role}_{user_id}_"):
+            try:
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], f))
+            except Exception:
+                pass
+
+    if role == 'client':
+        c = Client.query.get(user_id)
+        if c:
+            c.profile_photo = None
+            db.session.commit()
+    else:
+        p = Provider.query.get(user_id)
+        if p:
+            p.profile_photo = None
+            db.session.commit()
+
+    return ok(message='Photo removed successfully')
 
 # ===================== AUTH =====================
 
@@ -308,15 +403,17 @@ def get_provider(provider_id):
     if not p:
         return err("Provider not found", 404)
 
-    reviews = Review.query.filter_by(provider_id=provider_id).order_by(Review.created_at.desc()).all()
+    reviews = Review.query.filter_by(provider_id=provider_id)\
+                          .order_by(Review.created_at.desc()).all()
     reviews_data = []
     for r in reviews:
         client = Client.query.get(r.client_id)
         reviews_data.append({
-            "client_name": client.full_name if client else "Unknown",
-            "rating":      r.rating,
-            "comment":     r.comment,
-            "created_at":  r.created_at.isoformat(),
+            "client_name":  client.full_name if client else "Unknown",
+            "client_photo": client.profile_photo if client else None,
+            "rating":       r.rating,
+            "comment":      r.comment,
+            "created_at":   r.created_at.isoformat(),
         })
 
     return ok({
@@ -325,6 +422,7 @@ def get_provider(provider_id):
         "address": p.address, "bio": p.bio, "rating": p.rating,
         "total_reviews": p.total_reviews, "is_verified": p.is_verified,
         "is_active": p.is_active, "profile_photo": p.profile_photo,
+        "skills": p.skills, "portfolio": p.portfolio,
         "reviews": reviews_data,
     })
 
@@ -341,6 +439,8 @@ def update_provider(provider_id):
     if "address"       in data: p.address       = data["address"]
     if "profile_photo" in data: p.profile_photo = data["profile_photo"]
     if "is_active"     in data: p.is_active     = data["is_active"]
+    if "skills"        in data: p.skills        = data["skills"]
+    if "portfolio"     in data: p.portfolio     = data["portfolio"]
     db.session.commit()
     return ok(message="Profile updated successfully")
 
@@ -357,10 +457,6 @@ def send_message():
 
     if not all([sender_id, sender_type, receiver_id, receiver_type, content]):
         return err("Please fill all fields")
-    if sender_type not in ["client", "provider"]:
-        return err("Invalid sender_type")
-    if receiver_type not in ["client", "provider"]:
-        return err("Invalid receiver_type")
 
     msg = Message(sender_id=sender_id, sender_type=sender_type,
                   receiver_id=receiver_id, receiver_type=receiver_type,
@@ -368,14 +464,12 @@ def send_message():
     db.session.add(msg)
     db.session.commit()
 
-    # Create notification for receiver
     notif_msg = f"New message from {sender_type} #{sender_id}"
     db.session.add(Notification(user_id=receiver_id, user_type=receiver_type,
                                 type="new_message", message=notif_msg))
     db.session.commit()
 
-    return ok({"id": msg.id, "created_at": msg.created_at.isoformat()},
-              "Message sent")
+    return ok({"id": msg.id, "created_at": msg.created_at.isoformat()}, "Message sent")
 
 
 @app.route("/messages/conversation", methods=["GET"])
@@ -387,10 +481,10 @@ def get_conversation():
         return err("client_id and provider_id are required")
 
     messages = Message.query.filter(
-        ((Message.sender_id == client_id)   & (Message.sender_type == "client")   &
+        ((Message.sender_id == client_id)    & (Message.sender_type == "client")   &
          (Message.receiver_id == provider_id) & (Message.receiver_type == "provider")) |
-        ((Message.sender_id == provider_id) & (Message.sender_type == "provider") &
-         (Message.receiver_id == client_id)  & (Message.receiver_type == "client"))
+        ((Message.sender_id == provider_id)  & (Message.sender_type == "provider") &
+         (Message.receiver_id == client_id)   & (Message.receiver_type == "client"))
     ).order_by(Message.created_at.asc()).all()
 
     return ok([{
@@ -420,10 +514,10 @@ def get_conversations(user_id):
             if not provider:
                 continue
             last_msg = Message.query.filter(
-                ((Message.sender_id == user_id)   & (Message.sender_type == "client")   &
-                 (Message.receiver_id == pid)      & (Message.receiver_type == "provider")) |
-                ((Message.sender_id == pid)        & (Message.sender_type == "provider") &
-                 (Message.receiver_id == user_id)  & (Message.receiver_type == "client"))
+                ((Message.sender_id == user_id) & (Message.sender_type == "client")   &
+                 (Message.receiver_id == pid)    & (Message.receiver_type == "provider")) |
+                ((Message.sender_id == pid)      & (Message.sender_type == "provider") &
+                 (Message.receiver_id == user_id) & (Message.receiver_type == "client"))
             ).order_by(Message.created_at.desc()).first()
 
             unread = Message.query.filter_by(
@@ -442,7 +536,7 @@ def get_conversations(user_id):
             })
         return ok(result)
 
-    else:  # provider
+    else:
         sent     = db.session.query(Message.receiver_id).filter_by(sender_id=user_id, sender_type="provider")
         received = db.session.query(Message.sender_id).filter_by(receiver_id=user_id, receiver_type="provider")
         client_ids = set([r[0] for r in sent] + [r[0] for r in received])
@@ -454,8 +548,8 @@ def get_conversations(user_id):
                 continue
             last_msg = Message.query.filter(
                 ((Message.sender_id == user_id) & (Message.sender_type == "provider") &
-                 (Message.receiver_id == cid)   & (Message.receiver_type == "client")) |
-                ((Message.sender_id == cid)     & (Message.sender_type == "client")   &
+                 (Message.receiver_id == cid)    & (Message.receiver_type == "client")) |
+                ((Message.sender_id == cid)      & (Message.sender_type == "client")   &
                  (Message.receiver_id == user_id) & (Message.receiver_type == "provider"))
             ).order_by(Message.created_at.desc()).first()
 
@@ -530,7 +624,7 @@ def remove_favorite():
 
 @app.route("/favorites/<int:client_id>", methods=["GET"])
 def get_favorites(client_id):
-    favs = Favorite.query.filter_by(client_id=client_id).all()
+    favs   = Favorite.query.filter_by(client_id=client_id).all()
     result = []
     for f in favs:
         p = Provider.query.get(f.provider_id)
@@ -546,7 +640,6 @@ def get_favorites(client_id):
 def check_favorite():
     client_id   = request.args.get("client_id", type=int)
     provider_id = request.args.get("provider_id", type=int)
-
     exists = Favorite.query.filter_by(client_id=client_id, provider_id=provider_id).first()
     return ok({"is_favorite": exists is not None})
 
@@ -568,16 +661,12 @@ def add_review():
     db.session.add(Review(provider_id=provider_id, client_id=client_id,
                           rating=float(rating), comment=comment))
     db.session.commit()
-
-    # Update provider rating
     update_provider_rating(provider_id)
 
-    # Notify provider
     db.session.add(Notification(user_id=provider_id, user_type="provider",
                                 type="new_review",
                                 message=f"You received a new {rating}★ review"))
     db.session.commit()
-
     return ok(message="Review submitted successfully")
 
 
@@ -585,7 +674,7 @@ def add_review():
 def get_reviews(provider_id):
     reviews = Review.query.filter_by(provider_id=provider_id)\
                           .order_by(Review.created_at.desc()).all()
-    result = []
+    result  = []
     for r in reviews:
         client = Client.query.get(r.client_id)
         result.append({
@@ -678,6 +767,7 @@ def get_provider_settings(provider_id):
         "address": p.address, "bio": p.bio, "profile_photo": p.profile_photo,
         "rating": p.rating, "total_reviews": p.total_reviews,
         "is_verified": p.is_verified, "is_active": p.is_active,
+        "skills": p.skills, "portfolio": p.portfolio,
         "created_at": p.created_at.isoformat(),
     })
 
@@ -755,6 +845,47 @@ def mark_all_notifications_read(user_id):
     db.session.commit()
     return ok(message="All notifications marked as read")
 
+
+# ===================== PORTFOLIO =====================
+
+@app.route('/upload/portfolio-photo', methods=['POST'])
+def upload_portfolio_photo():
+    """Upload a portfolio photo for a provider."""
+    if 'file' not in request.files:
+        return err('No file provided')
+
+    file        = request.files['file']
+    provider_id = request.form.get('provider_id', type=int)
+
+    if not file or file.filename == '':
+        return err('No file selected')
+    if not allowed_file(file.filename):
+        return err('File type not allowed')
+    if not provider_id:
+        return err('provider_id is required')
+
+    ext      = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"portfolio_{provider_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
+    photo_url = f"http://192.168.0.184:5000/uploads/profiles/{filename}"
+    return ok({'photo_url': photo_url}, 'Portfolio photo uploaded')
+
+
+@app.route('/upload/portfolio-photo', methods=['DELETE'])
+def delete_portfolio_photo():
+    """Delete a portfolio photo by filename."""
+    data     = request.json
+    filename = data.get('filename', '')
+    if filename:
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+        except Exception:
+            pass
+    return ok(message='Portfolio photo deleted')
 
 # ===================== RUN =====================
 

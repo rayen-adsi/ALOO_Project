@@ -41,14 +41,26 @@ class _SignUpFlowScreenState extends State<SignUpFlowScreen>
 
   String? _category;
 
-  // Category keys
+  // Category keys for translation (display label)
   static const List<String> _categoryKeys = [
     'cat_plumber',
     'cat_electrician',
     'cat_mechanic',
     'cat_cleaner',
     'cat_tutor',
+    'cat_developer',
     'cat_home_repair',
+  ];
+
+  // Exact French values matching backend VALID_CATEGORIES
+  static const List<String> _categoryBackendValues = [
+    'Plombier',
+    'Électricien',
+    'Mécanicien',
+    'Femme de ménage',
+    'Professeur',
+    'Développeur',
+    'Réparation domicile',
   ];
 
   @override
@@ -342,8 +354,7 @@ class _SignUpFlowScreenState extends State<SignUpFlowScreen>
                                               lang: lang,
                                               category: _category,
                                               categories: categories,
-                                              categoryKeys:
-                                                  _categoryKeys,
+                                              categoryKeys: _categoryBackendValues, // send French to backend
                                               onCategoryChanged:
                                                   (v) => setState(
                                                       () =>
@@ -566,12 +577,13 @@ class _ProfessionalForm extends StatelessWidget {
   });
 
   static const Map<String, IconData> _categoryIcons = {
-    'cat_plumber':     Icons.water_drop_outlined,
-    'cat_electrician': Icons.bolt_outlined,
-    'cat_mechanic':    Icons.build_outlined,
-    'cat_cleaner':     Icons.cleaning_services_outlined,
-    'cat_tutor':       Icons.school_outlined,
-    'cat_home_repair': Icons.home_repair_service_outlined,
+    'Plombier':            Icons.water_drop_outlined,
+    'Électricien':         Icons.bolt_outlined,
+    'Mécanicien':          Icons.build_outlined,
+    'Femme de ménage':     Icons.cleaning_services_outlined,
+    'Professeur':          Icons.school_outlined,
+    'Développeur':         Icons.code_outlined,
+    'Réparation domicile': Icons.home_repair_service_outlined,
   };
 
   @override

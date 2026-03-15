@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../core/l10n/language_provider.dart';
 import '../core/storage/user_session.dart';
 import '../services/api_services.dart';
+import '../core/user_provider.dart';
+import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
 import 'provider_profile_screen.dart';
 import 'chat_screen.dart';
@@ -22,9 +24,10 @@ class homeScreen extends StatefulWidget {
 class _homeScreenState extends State<homeScreen>
     with SingleTickerProviderStateMixin {
   int _currentNav = 0;
-  final _favKey = GlobalKey<FavoritesScreenState>();
+  final _favKey   = GlobalKey<FavoritesScreenState>();
+  final _convKey  = GlobalKey<ConversationsScreenState>();
 
-  // ── Entry animations ──────────────────────────────────────────────────────
+
   late final AnimationController _entryCtrl;
   late final Animation<double> _headerFade;
   late final Animation<Offset> _headerSlide;
@@ -34,22 +37,18 @@ class _homeScreenState extends State<homeScreen>
   late final Animation<double> _cardsFade;
   late final Animation<Offset> _cardsSlide;
 
-  // ── Providers data ────────────────────────────────────────────────────────
-  List<Map<String, dynamic>> _providers       = [];
+  List<Map<String, dynamic>> _providers         = [];
   List<Map<String, dynamic>> _filteredProviders = [];
-  bool   _loadingProviders = true;
+  bool    _loadingProviders = true;
   String? _providersError;
 
-  // ── Search & filter ───────────────────────────────────────────────────────
   final _searchCtrl     = TextEditingController();
   String? _selectedCategory;
 
-  // ── Session ───────────────────────────────────────────────────────────────
-  int    _clientId   = 0;
-  String _userRole   = 'client';
-  Set<int> _favoriteIds = {};
+  int    _userId   = 0;
+  String _userRole = 'client';
+  int    _avatarIndex = 0;
 
-  // ── Category maps ─────────────────────────────────────────────────────────
   static const Map<String, Color> _categoryColors = {
     'Plombier':            Color(0xFF1A6B9A),
     'Électricien':         Color(0xFFF59E0B),
@@ -91,36 +90,19 @@ class _homeScreenState extends State<homeScreen>
   @override
   void initState() {
     super.initState();
-
-    _entryCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-
-    _headerFade = CurvedAnimation(parent: _entryCtrl,
-        curve: const Interval(0.00, 0.45, curve: Curves.easeOut));
-    _headerSlide = Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _entryCtrl,
-            curve: const Interval(0.00, 0.50, curve: Curves.easeOutCubic)));
-    _searchFade = CurvedAnimation(parent: _entryCtrl,
-        curve: const Interval(0.15, 0.55, curve: Curves.easeOut));
-    _searchSlide = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _entryCtrl,
-            curve: const Interval(0.15, 0.55, curve: Curves.easeOutCubic)));
-    _catFade = CurvedAnimation(parent: _entryCtrl,
-        curve: const Interval(0.30, 0.70, curve: Curves.easeOut));
-    _cardsFade = CurvedAnimation(parent: _entryCtrl,
-        curve: const Interval(0.45, 1.00, curve: Curves.easeOut));
-    _cardsSlide = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _entryCtrl,
-            curve: const Interval(0.45, 1.00, curve: Curves.easeOutCubic)));
-
+    _entryCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+    _headerFade  = CurvedAnimation(parent: _entryCtrl, curve: const Interval(0.00, 0.45, curve: Curves.easeOut));
+    _headerSlide = Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero).animate(CurvedAnimation(parent: _entryCtrl, curve: const Interval(0.00, 0.50, curve: Curves.easeOutCubic)));
+    _searchFade  = CurvedAnimation(parent: _entryCtrl, curve: const Interval(0.15, 0.55, curve: Curves.easeOut));
+    _searchSlide = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(CurvedAnimation(parent: _entryCtrl, curve: const Interval(0.15, 0.55, curve: Curves.easeOutCubic)));
+    _catFade     = CurvedAnimation(parent: _entryCtrl, curve: const Interval(0.30, 0.70, curve: Curves.easeOut));
+    _cardsFade   = CurvedAnimation(parent: _entryCtrl, curve: const Interval(0.45, 1.00, curve: Curves.easeOut));
+    _cardsSlide  = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero).animate(CurvedAnimation(parent: _entryCtrl, curve: const Interval(0.45, 1.00, curve: Curves.easeOutCubic)));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _entryCtrl.forward();
       _loadSession();
     });
-
-    _searchCtrl.addListener(_onSearchChanged);
+    _searchCtrl.addListener(_applyFilters);
   }
 
   @override
@@ -130,51 +112,27 @@ class _homeScreenState extends State<homeScreen>
     super.dispose();
   }
 
-  // ── Session ───────────────────────────────────────────────────────────────
-
   Future<void> _loadSession() async {
     final session = await UserSession.load();
     if (!mounted) return;
     setState(() {
-      _clientId = session['id'] ?? 0;
-      _userRole = session['role'] ?? 'client';
+      _userId      = session['id']           ?? 0;
+      _userRole    = session['role']         ?? 'client';
+      _avatarIndex = session['avatar_index'] ?? 0;
     });
     await _fetchProviders();
-    if (_userRole == 'client' && _clientId > 0) {
-      await _loadFavorites();
-    }
   }
-
-  Future<void> _loadFavorites() async {
-    final favs = await ApiService.getFavorites(_clientId);
-    if (!mounted) return;
-    setState(() {
-      _favoriteIds = favs.map((f) => f['id'] as int).toSet();
-    });
-  }
-
-  // ── Providers ─────────────────────────────────────────────────────────────
 
   Future<void> _fetchProviders() async {
-    setState(() {
-      _loadingProviders = true;
-      _providersError   = null;
-    });
+    setState(() { _loadingProviders = true; _providersError = null; });
     try {
       final data = await ApiService.getProviders();
       if (!mounted) return;
       final mapped = _mapProviders(data);
-      setState(() {
-        _providers         = mapped;
-        _filteredProviders = mapped;
-        _loadingProviders  = false;
-      });
+      setState(() { _providers = mapped; _filteredProviders = mapped; _loadingProviders = false; });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _providersError   = 'Could not load providers';
-        _loadingProviders = false;
-      });
+      setState(() { _providersError = 'Could not load providers'; _loadingProviders = false; });
     }
   }
 
@@ -182,42 +140,32 @@ class _homeScreenState extends State<homeScreen>
     return data.map((p) {
       final category = p['category'] as String? ?? '';
       return {
-        'id':          p['id'] ?? 0,
-        'name':        p['full_name'] ?? '',
-        'job_key':     _categoryToKey[category] ?? 'cat_home_repair',
-        'category':    category,
-        'city':        p['city'] ?? '',
-        'rating':      (p['rating'] as num?)?.toDouble() ?? 0.0,
-        'top':         p['is_verified'] == true,
-        'color':       _categoryColors[category] ?? const Color(0xFF1A6B9A),
+        'id':            p['id']           ?? 0,
+        'name':          p['full_name']    ?? '',
+        'job_key':       _categoryToKey[category] ?? 'cat_home_repair',
+        'category':      category,
+        'city':          p['city']         ?? '',
+        'rating':        (p['rating'] as num?)?.toDouble() ?? 0.0,
+        'top':           p['is_verified']  == true,
+        'color':         _categoryColors[category] ?? const Color(0xFF1A6B9A),
         'profile_photo': p['profile_photo'],
         'total_reviews': p['total_reviews'] ?? 0,
       };
     }).toList();
   }
 
-  // ── Search ────────────────────────────────────────────────────────────────
-
-  void _onSearchChanged() {
-    _applyFilters();
-  }
-
   void _onCategoryTap(String key) {
     final category = _keyToCategory[key];
-    setState(() {
-      _selectedCategory = _selectedCategory == category ? null : category;
-    });
+    setState(() { _selectedCategory = _selectedCategory == category ? null : category; });
     _applyFilters();
   }
 
   void _applyFilters() {
-    final q    = _searchCtrl.text.trim().toLowerCase();
-    final cat  = _selectedCategory;
-
+    final q   = _searchCtrl.text.trim().toLowerCase();
+    final cat = _selectedCategory;
     setState(() {
       _filteredProviders = _providers.where((p) {
-        final matchQ   = q.isEmpty || (p['name'] as String).toLowerCase().contains(q)
-                                   || (p['city'] as String).toLowerCase().contains(q);
+        final matchQ   = q.isEmpty || (p['name'] as String).toLowerCase().contains(q) || (p['city'] as String).toLowerCase().contains(q);
         final matchCat = cat == null || p['category'] == cat;
         return matchQ && matchCat;
       }).toList();
@@ -225,64 +173,40 @@ class _homeScreenState extends State<homeScreen>
   }
 
   Future<void> _searchFromBackend(String q) async {
-    if (q.length < 2) {
-      _applyFilters();
-      return;
-    }
+    if (q.length < 2) { _applyFilters(); return; }
     try {
-      final data = await ApiService.searchProviders(
-        q:        q,
-        category: _selectedCategory,
-      );
+      final data = await ApiService.searchProviders(q: q, category: _selectedCategory);
       if (!mounted) return;
       setState(() => _filteredProviders = _mapProviders(data));
     } catch (_) {}
   }
 
-  // ── Favorites ─────────────────────────────────────────────────────────────
-
-  Future<void> _toggleFavorite(int providerId) async {
-    if (_userRole != 'client' || _clientId == 0) return;
-
-    final isFav = _favoriteIds.contains(providerId);
-    setState(() {
-      if (isFav) {
-        _favoriteIds.remove(providerId);
-      } else {
-        _favoriteIds.add(providerId);
-      }
-    });
-
-    if (isFav) {
-      await ApiService.removeFavorite(clientId: _clientId, providerId: providerId);
-    } else {
-      await ApiService.addFavorite(clientId: _clientId, providerId: providerId);
-    }
+  void _goToProfile(Map<String, dynamic> data) {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => ProviderProfileScreen(
+        providerId: data['id'] as int,
+      ),
+    ));
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  void _goToChat(Map<String, dynamic> data) {
+    Navigator.push(context, chatScreenRoute(
+      providerId:       data['id'] as int,
+      providerName:     data['name'] as String,
+      providerCategory: data['category'] as String?,
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
-
     final List<Widget> tabs = [
-      // 0 — Home
       _buildHomeTab(lang),
-
-      // 1 — Favourites (key forces rebuild when clientId loads from session)
-      FavoritesScreen(key: _favKey, clientId: _clientId),
-
-      // 2 — Map (placeholder)
+      FavoritesScreen(key: _favKey, clientId: _userId),
       const Center(child: Icon(Icons.location_on_outlined, size: 60, color: Colors.grey)),
-
-      // 3 — Conversations
-      ConversationsScreen(userId: _clientId, userRole: _userRole),
-
-      // 4 — Settings
+      ConversationsScreen(key: _convKey, userId: _userId, userRole: _userRole),
       const SettingsScreen(),
     ];
-
     return Directionality(
       textDirection: lang.textDirection,
       child: Scaffold(
@@ -293,6 +217,7 @@ class _homeScreenState extends State<homeScreen>
           onTap: (i) {
             setState(() => _currentNav = i);
             if (i == 1) _favKey.currentState?.reload();
+            if (i == 3) _convKey.currentState?.reload(); // auto-refresh messages
           },
         ),
       ),
@@ -302,110 +227,44 @@ class _homeScreenState extends State<homeScreen>
   Widget _buildHomeTab(LanguageProvider lang) {
     return Stack(
       children: [
-        Positioned.fill(
-          child: Image.asset('assets/images/bg.png', fit: BoxFit.cover),
-        ),
+        Positioned.fill(child: Image.asset('assets/images/bg.png', fit: BoxFit.cover)),
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withOpacity(0.05),
-                  Colors.white.withOpacity(0.75),
-                  Colors.white.withOpacity(0.95),
-                ],
+                end:   Alignment.bottomCenter,
+                colors: [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.75), Colors.white.withOpacity(0.95)],
               ),
             ),
           ),
         ),
         Column(
           children: [
-            _TopBar(
-              fadeAnim:  _headerFade,
-              slideAnim: _headerSlide,
-              lang:      lang,
-              fullName:  widget.fullName,
-            ),
+            _TopBar(fadeAnim: _headerFade, slideAnim: _headerSlide, lang: lang, onAvatarTap: () async {
+              final updated = await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+              if (updated == true && mounted) {
+                await context.read<UserProvider>().load();
+                _loadSession();
+              }
+            }),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Search bar ────────────────────────────────────────
-                    FadeTransition(
-                      opacity: _searchFade,
-                      child: SlideTransition(
-                        position: _searchSlide,
-                        child: _SearchBar(
-                          lang:       lang,
-                          controller: _searchCtrl,
-                          onSubmitted: _searchFromBackend,
-                        ),
-                      ),
-                    ),
-
-                    // ── Category chips ────────────────────────────────────
-                    FadeTransition(
-                      opacity: _catFade,
-                      child: _CategoriesRow(
-                        categories:       _categories,
-                        lang:             lang,
-                        selectedCategory: _selectedCategory != null
-                            ? _categoryToKey.entries
-                                .firstWhere((e) => e.value == _selectedCategory,
-                                    orElse: () => const MapEntry('', ''))
-                                .key
-                            : null,
-                        onTap: _onCategoryTap,
-                      ),
-                    ),
-
-                    // ── Provider cards ────────────────────────────────────
+                    FadeTransition(opacity: _searchFade, child: SlideTransition(position: _searchSlide, child: _SearchBar(lang: lang, controller: _searchCtrl, onSubmitted: _searchFromBackend))),
+                    FadeTransition(opacity: _catFade, child: _CategoriesRow(categories: _categories, lang: lang, selectedCategory: _selectedCategory != null ? _categoryToKey.entries.firstWhere((e) => e.value == _selectedCategory, orElse: () => const MapEntry('', '')).key : null, onTap: _onCategoryTap)),
                     FadeTransition(
                       opacity: _cardsFade,
                       child: SlideTransition(
                         position: _cardsSlide,
                         child: _loadingProviders
-                            ? const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 40),
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    color: Color(0xFF2A5298),
-                                    strokeWidth: 2.5,
-                                  ),
-                                ),
-                              )
+                            ? const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator(color: Color(0xFF2A5298), strokeWidth: 2.5)))
                             : _providersError != null
-                                ? Padding(
-                                    padding: const EdgeInsets.all(24),
-                                    child: Column(
-                                      children: [
-                                        Icon(Icons.wifi_off_rounded,
-                                            color: Colors.grey.shade400,
-                                            size: 40),
-                                        const SizedBox(height: 10),
-                                        Text(_providersError!,
-                                            style: TextStyle(
-                                                color: Colors.grey.shade500)),
-                                        const SizedBox(height: 12),
-                                        TextButton(
-                                          onPressed: _fetchProviders,
-                                          child: const Text('Retry'),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : _RecommendedSection(
-                                    providers:    _filteredProviders,
-                                    lang:         lang,
-                                    favoriteIds:  _favoriteIds,
-                                    onFavorite:   _toggleFavorite,
-                                    userRole:     _userRole,
-                                    clientId:     _clientId,
-                                  ),
+                                ? Padding(padding: const EdgeInsets.all(24), child: Column(children: [Icon(Icons.wifi_off_rounded, color: Colors.grey.shade400, size: 40), const SizedBox(height: 10), Text(_providersError!, style: TextStyle(color: Colors.grey.shade500)), const SizedBox(height: 12), TextButton(onPressed: _fetchProviders, child: const Text('Retry'))]))
+                                : _RecommendedSection(providers: _filteredProviders, lang: lang, onCardTap: _goToProfile, onContact: _goToChat),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -427,18 +286,13 @@ class _homeScreenState extends State<homeScreen>
 class _TopBar extends StatelessWidget {
   final Animation<double> fadeAnim;
   final Animation<Offset> slideAnim;
-  final LanguageProvider lang;
-  final String fullName;
-
-  const _TopBar({
-    required this.fadeAnim,
-    required this.slideAnim,
-    required this.lang,
-    required this.fullName,
-  });
+  final LanguageProvider  lang;
+  final VoidCallback      onAvatarTap;
+  const _TopBar({required this.fadeAnim, required this.slideAnim, required this.lang, required this.onAvatarTap});
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<UserProvider>();
     return FadeTransition(
       opacity: fadeAnim,
       child: SlideTransition(
@@ -449,34 +303,17 @@ class _TopBar extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
             child: Row(
               children: [
-                Image.asset('assets/images/aloo_logo.png',
-                    height: 60, fit: BoxFit.contain),
+                Image.asset('assets/images/aloo_logo.png', height: 60, fit: BoxFit.contain),
                 const Spacer(),
-                Row(
-                  children: [
-                    Text(
-                      fullName.isNotEmpty ? fullName : '',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFF2A5298).withOpacity(0.10),
-                        border: Border.all(
-                            color: const Color(0xFF2A5298).withOpacity(0.25),
-                            width: 1.5),
-                      ),
-                      child: const Icon(Icons.person_rounded,
-                          color: Color(0xFF2A5298), size: 22),
-                    ),
-                  ],
+                if (user.fullName.isNotEmpty)
+                  Text(user.fullName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
+                const SizedBox(width: 10),
+                UserAvatar(
+                  avatarIndex: user.avatarIndex,
+                  photoPath:   user.photoPath,
+                  size:        40,
+                  onTap:       onAvatarTap,
+                  showBorder:  true,
                 ),
               ],
             ),
@@ -492,15 +329,10 @@ class _TopBar extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SearchBar extends StatelessWidget {
-  final LanguageProvider lang;
+  final LanguageProvider      lang;
   final TextEditingController controller;
-  final ValueChanged<String> onSubmitted;
-
-  const _SearchBar({
-    required this.lang,
-    required this.controller,
-    required this.onSubmitted,
-  });
+  final ValueChanged<String>  onSubmitted;
+  const _SearchBar({required this.lang, required this.controller, required this.onSubmitted});
 
   @override
   Widget build(BuildContext context) {
@@ -508,33 +340,17 @@ class _SearchBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
       child: Container(
         height: 50,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.07),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 14, offset: const Offset(0, 4))]),
         child: TextField(
           controller: controller,
           onSubmitted: onSubmitted,
           style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
             hintText: lang.t('search_placeholder'),
-            hintStyle: TextStyle(
-              fontSize: 14.5,
-              color: Colors.grey.shade400,
-              fontWeight: FontWeight.w500,
-            ),
-            prefixIcon: Icon(Icons.search_rounded,
-                color: const Color(0xFF2A5298).withOpacity(0.7), size: 22),
+            hintStyle: TextStyle(fontSize: 14.5, color: Colors.grey.shade400, fontWeight: FontWeight.w500),
+            prefixIcon: Icon(Icons.search_rounded, color: const Color(0xFF2A5298).withOpacity(0.7), size: 22),
             border: InputBorder.none,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           ),
         ),
       ),
@@ -548,16 +364,10 @@ class _SearchBar extends StatelessWidget {
 
 class _CategoriesRow extends StatelessWidget {
   final List<Map<String, dynamic>> categories;
-  final LanguageProvider lang;
-  final String? selectedCategory;
-  final ValueChanged<String> onTap;
-
-  const _CategoriesRow({
-    required this.categories,
-    required this.lang,
-    required this.selectedCategory,
-    required this.onTap,
-  });
+  final LanguageProvider           lang;
+  final String?                    selectedCategory;
+  final ValueChanged<String>       onTap;
+  const _CategoriesRow({required this.categories, required this.lang, required this.selectedCategory, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -570,13 +380,7 @@ class _CategoriesRow extends StatelessWidget {
           children: categories.map((cat) {
             final key      = cat['key'] as String;
             final isActive = selectedCategory == key;
-            return _CategoryChip(
-              icon:     cat['icon'] as IconData,
-              label:    lang.t(key),
-              color:    cat['color'] as Color,
-              isActive: isActive,
-              onTap:    () => onTap(key),
-            );
+            return _CategoryChip(icon: cat['icon'] as IconData, label: lang.t(key), color: cat['color'] as Color, isActive: isActive, onTap: () => onTap(key));
           }).toList(),
         ),
       ),
@@ -585,81 +389,37 @@ class _CategoriesRow extends StatelessWidget {
 }
 
 class _CategoryChip extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _CategoryChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  State<_CategoryChip> createState() => _CategoryChipState();
+  final IconData icon; final String label; final Color color; final bool isActive; final VoidCallback onTap;
+  const _CategoryChip({required this.icon, required this.label, required this.color, required this.isActive, required this.onTap});
+  @override State<_CategoryChip> createState() => _CategoryChipState();
 }
 
 class _CategoryChipState extends State<_CategoryChip> {
   bool _pressed = false;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.onTap,
       onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
+      onTapUp:   (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
-        scale: _pressed ? 0.93 : 1.0,
-        duration: const Duration(milliseconds: 130),
+        scale: _pressed ? 0.93 : 1.0, duration: const Duration(milliseconds: 130),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.only(right: 12),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: widget.isActive
-                ? widget.color.withOpacity(0.15)
-                : Colors.white,
+            color: widget.isActive ? widget.color.withOpacity(0.15) : Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: widget.isActive
-                ? Border.all(color: widget.color, width: 1.5)
-                : null,
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withOpacity(0.15),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: widget.isActive ? Border.all(color: widget.color, width: 1.5) : null,
+            boxShadow: [BoxShadow(color: widget.color.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 4))],
           ),
-          child: Column(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: widget.color.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(widget.icon, color: widget.color, size: 22),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: widget.isActive
-                      ? widget.color
-                      : const Color(0xFF1E293B),
-                ),
-              ),
-            ],
-          ),
+          child: Column(children: [
+            Container(width: 42, height: 42, decoration: BoxDecoration(color: widget.color.withOpacity(0.12), shape: BoxShape.circle), child: Icon(widget.icon, color: widget.color, size: 22)),
+            const SizedBox(height: 6),
+            Text(widget.label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: widget.isActive ? widget.color : const Color(0xFF1E293B))),
+          ]),
         ),
       ),
     );
@@ -671,94 +431,34 @@ class _CategoryChipState extends State<_CategoryChip> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _RecommendedSection extends StatelessWidget {
-  final List<Map<String, dynamic>> providers;
-  final LanguageProvider lang;
-  final Set<int> favoriteIds;
-  final ValueChanged<int> onFavorite;
-  final String userRole;
-  final int clientId;
-
-  const _RecommendedSection({
-    required this.providers,
-    required this.lang,
-    required this.favoriteIds,
-    required this.onFavorite,
-    required this.userRole,
-    required this.clientId,
-  });
+  final List<Map<String, dynamic>>         providers;
+  final LanguageProvider                   lang;
+  final ValueChanged<Map<String, dynamic>> onCardTap;
+  final ValueChanged<Map<String, dynamic>> onContact;
+  const _RecommendedSection({required this.providers, required this.lang, required this.onCardTap, required this.onContact});
 
   @override
   Widget build(BuildContext context) {
     if (providers.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(40),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(Icons.search_off_rounded,
-                  color: Colors.grey.shade400, size: 48),
-              const SizedBox(height: 12),
-              Text(
-                lang.t('no_providers_found'),
-                style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        ),
-      );
+      return Padding(padding: const EdgeInsets.all(40), child: Center(child: Column(children: [Icon(Icons.search_off_rounded, color: Colors.grey.shade400, size: 48), const SizedBox(height: 12), Text(lang.t('no_providers_found'), style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600))])));
     }
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 4,
-                height: 20,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF1A3A6B), Color(0xFF2A5298)],
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                lang.t('recommended'),
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-            ],
-          ),
+          Row(children: [
+            Container(width: 4, height: 20, decoration: BoxDecoration(gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF1A3A6B), Color(0xFF2A5298)]), borderRadius: BorderRadius.circular(4))),
+            const SizedBox(width: 10),
+            Text(lang.t('recommended'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+          ]),
           const SizedBox(height: 16),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount:   2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing:  12,
-              childAspectRatio: 0.72,
-            ),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.72),
             itemCount: providers.length,
-            itemBuilder: (_, i) => _ProviderCard(
-              data:        providers[i],
-              lang:        lang,
-              isFavorite:  favoriteIds.contains(providers[i]['id']),
-              onFavorite:  () => onFavorite(providers[i]['id'] as int),
-              showHeart:   userRole == 'client',
-              clientId:    clientId,
-            ),
+            itemBuilder: (_, i) => _ProviderCard(data: providers[i], lang: lang, onCardTap: () => onCardTap(providers[i]), onContact: () => onContact(providers[i])),
           ),
         ],
       ),
@@ -768,302 +468,96 @@ class _RecommendedSection extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROVIDER CARD
+// • Tap anywhere on card  → provider profile
+// • Contact button        → chat
+// • View Profile button   → provider profile
+// • No heart (heart is on the provider profile screen)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ProviderCard extends StatefulWidget {
+class _ProviderCard extends StatelessWidget {
   final Map<String, dynamic> data;
-  final LanguageProvider lang;
-  final bool isFavorite;
-  final VoidCallback onFavorite;
-  final bool showHeart;
-  final int clientId;
-
-  const _ProviderCard({
-    required this.data,
-    required this.lang,
-    required this.isFavorite,
-    required this.onFavorite,
-    required this.showHeart,
-    required this.clientId,
-  });
-
-  @override
-  State<_ProviderCard> createState() => _ProviderCardState();
-}
-
-class _ProviderCardState extends State<_ProviderCard> {
-  bool _pressed = false;
+  final LanguageProvider     lang;
+  final VoidCallback         onCardTap;
+  final VoidCallback         onContact;
+  const _ProviderCard({required this.data, required this.lang, required this.onCardTap, required this.onContact});
 
   @override
   Widget build(BuildContext context) {
-    final data       = widget.data;
-    final lang       = widget.lang;
-    final bool isTop = data['top'] as bool;
-    final Color avatarColor = data['color'] as Color;
-    final double rating     = (data['rating'] as num?)?.toDouble() ?? 0.0;
+    final bool isTop    = data['top'] as bool;
+    final Color color   = data['color'] as Color;
+    final double rating = (data['rating'] as num?)?.toDouble() ?? 0.0;
 
     return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp:   (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale:    _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 130),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.07),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
+      onTap: onCardTap,
+      child: Container(
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 16, offset: const Offset(0, 6))]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Avatar
+            Stack(children: [
+              Container(
+                height: 110, width: double.infinity,
+                decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [color.withOpacity(0.85), color]), borderRadius: const BorderRadius.vertical(top: Radius.circular(18))),
+                child: data['profile_photo'] != null
+                    ? ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(18)), child: Image.network(data['profile_photo'], fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person_rounded, color: Colors.white54, size: 56)))
+                    : const Icon(Icons.person_rounded, color: Colors.white54, size: 56),
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Avatar area ───────────────────────────────────────────
-              Stack(
-                children: [
-                  Container(
-                    height: 110,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end:   Alignment.bottomRight,
-                        colors: [
-                          avatarColor.withOpacity(0.85),
-                          avatarColor,
-                        ],
-                      ),
-                      borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(18)),
-                    ),
-                    child: data['profile_photo'] != null
-                        ? ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(18)),
-                            child: Image.network(
-                              data['profile_photo'],
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                  Icons.person_rounded,
-                                  color: Colors.white54,
-                                  size: 56),
-                            ),
-                          )
-                        : const Icon(Icons.person_rounded,
-                            color: Colors.white54, size: 56),
-                  ),
+              if (isTop) Positioned(top: 8, left: 8, child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)]), borderRadius: BorderRadius.circular(8), boxShadow: [BoxShadow(color: const Color(0xFFFF6B35).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 3))]),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.verified_rounded, color: Colors.white, size: 11), const SizedBox(width: 3), Text(lang.t('top_provider'), style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w800))]),
+              )),
+            ]),
 
-                  // TOP badge
-                  if (isTop)
-                    Positioned(
-                      top: 8, left: 8,
+            // Info
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(data['name'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                  const SizedBox(height: 2),
+                  Text(lang.t(data['job_key'] as String), style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF374757).withOpacity(0.85))),
+                  const SizedBox(height: 5),
+                  Row(children: [
+                    const Icon(Icons.star_rounded, color: Color(0xFFFBBF24), size: 14),
+                    const SizedBox(width: 3),
+                    Text(rating > 0 ? rating.toStringAsFixed(1) : 'New', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF7D7D7D))),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.location_on_rounded, color: Color(0xFF7D7D7D), size: 12),
+                    const SizedBox(width: 2),
+                    Expanded(child: Text(data['city'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Color(0xFF7D7D7D), fontWeight: FontWeight.w600))),
+                  ]),
+                  const Spacer(),
+
+                  // Buttons
+                  Row(children: [
+                    // Contact → chat (absorbs tap so card tap doesn't fire)
+                    Expanded(child: GestureDetector(
+                      onTap: onContact,
+                      behavior: HitTestBehavior.opaque,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)],
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF6B35).withOpacity(0.4),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.verified_rounded,
-                                color: Colors.white, size: 11),
-                            const SizedBox(width: 3),
-                            Text(
-                              lang.t('top_provider'),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
+                        height: 30,
+                        decoration: BoxDecoration(border: Border.all(color: const Color(0xFF2174FC), width: 1.3), borderRadius: BorderRadius.circular(8)),
+                        child: Center(child: Text(lang.t('contact'), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF2174FC)))),
                       ),
-                    ),
-
-                  // Heart button
-                  if (widget.showHeart)
-                    Positioned(
-                      top: 8, right: 8,
-                      child: GestureDetector(
-                        onTap: widget.onFavorite,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 28, height: 28,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            widget.isFavorite
-                                ? Icons.favorite_rounded
-                                : Icons.favorite_border_rounded,
-                            color: widget.isFavorite
-                                ? Colors.red
-                                : Colors.grey.shade400,
-                            size: 16,
-                          ),
-                        ),
+                    )),
+                    const SizedBox(width: 6),
+                    // View Profile → same as card tap
+                    Expanded(child: GestureDetector(
+                      onTap: onCardTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        height: 30,
+                        decoration: BoxDecoration(color: const Color(0xFF2174FC), borderRadius: BorderRadius.circular(8)),
+                        child: Center(child: Text(lang.t('view_profile'), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Colors.white))),
                       ),
-                    ),
-                ],
+                    )),
+                  ]),
+                ]),
               ),
-
-              // ── Info area ─────────────────────────────────────────────
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        data['name'] as String,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        lang.t(data['job_key'] as String),
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF374757).withOpacity(0.85),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          const Icon(Icons.star_rounded,
-                              color: Color(0xFFFBBF24), size: 14),
-                          const SizedBox(width: 3),
-                          Text(
-                            rating > 0 ? rating.toStringAsFixed(1) : 'New',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF7D7D7D),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.location_on_rounded,
-                              color: Color(0xFF7D7D7D), size: 12),
-                          const SizedBox(width: 2),
-                          Expanded(
-                            child: Text(
-                              data['city'] as String,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF7D7D7D),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-
-                      // ── Buttons ───────────────────────────────────────
-                      Row(
-                        children: [
-                          // Contact
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                if (widget.clientId > 0) {
-                                  Navigator.push(context, MaterialPageRoute(
-                                    builder: (_) => ChatScreen(
-                                      providerId:       data['id'] as int,
-                                      providerName:     data['name'] as String,
-                                      providerCategory: data['category'] as String?,
-                                    ),
-                                  ));
-                                }
-                              },
-                              child: Container(
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: const Color(0xFF2174FC),
-                                    width: 1.3,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    lang.t('contact'),
-                                    style: const TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF2174FC),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-
-                          // View Profile
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.push(context, MaterialPageRoute(
-                                  builder: (_) => ProviderProfileScreen(
-                                    providerId: data['id'] as int,
-                                  ),
-                                ));
-                              },
-                              child: Container(
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2174FC),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    lang.t('view_profile'),
-                                    style: const TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1077,7 +571,6 @@ class _ProviderCardState extends State<_ProviderCard> {
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
-
   const _BottomNav({required this.currentIndex, required this.onTap});
 
   @override
@@ -1089,18 +582,8 @@ class _BottomNav extends StatelessWidget {
       {'icon': Icons.chat_bubble_outline_rounded, 'active': Icons.chat_bubble_rounded},
       {'icon': Icons.settings_outlined,           'active': Icons.settings_rounded},
     ];
-
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -4))]),
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -1112,31 +595,10 @@ class _BottomNav extends StatelessWidget {
               return GestureDetector(
                 onTap: () => onTap(i),
                 behavior: HitTestBehavior.opaque,
-                child: SizedBox(
-                  width: 52,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width:  isActive ? 40 : 0,
-                        height: isActive ? 4  : 0,
-                        margin: const EdgeInsets.only(bottom: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      Icon(
-                        isActive
-                            ? items[i]['active'] as IconData
-                            : items[i]['icon']   as IconData,
-                        color: Colors.black,
-                        size: 24,
-                      ),
-                    ],
-                  ),
-                ),
+                child: SizedBox(width: 52, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  AnimatedContainer(duration: const Duration(milliseconds: 200), width: isActive ? 40 : 0, height: isActive ? 4 : 0, margin: const EdgeInsets.only(bottom: 6), decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(4))),
+                  Icon(isActive ? items[i]['active'] as IconData : items[i]['icon'] as IconData, color: Colors.black, size: 24),
+                ])),
               );
             }),
           ),

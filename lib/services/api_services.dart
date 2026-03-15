@@ -1,8 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = "http://127.0.0.1:5000";
+  static const String baseUrl = "http://192.168.0.184:5000";
 
   static Map<String, String> get _headers => {"Content-Type": "application/json"};
 
@@ -28,11 +29,11 @@ class ApiService {
       final body = jsonDecode(res.body);
       return {
         "success":   body["success"] == true,
-        "message":   body["message"]        ?? "Unknown error",
-        "role":      body["data"]?["role"]  ?? "",
-        "id":        body["data"]?["id"]    ?? 0,
+        "message":   body["message"]           ?? "Unknown error",
+        "role":      body["data"]?["role"]      ?? "",
+        "id":        body["data"]?["id"]        ?? 0,
         "full_name": body["data"]?["full_name"] ?? "",
-        "email":     body["data"]?["email"] ?? "",
+        "email":     body["data"]?["email"]     ?? "",
       };
     } catch (e) {
       return {"success": false, "message": "Connection failed"};
@@ -111,11 +112,9 @@ class ApiService {
 
   static Future<List<Map<String, dynamic>>> getProviders() async {
     try {
-      final res = await http.get(Uri.parse("$baseUrl/providers"), headers: _headers);
+      final res  = await http.get(Uri.parse("$baseUrl/providers"), headers: _headers);
       final body = jsonDecode(res.body);
-      if (body["success"] == true) {
-        return List<Map<String, dynamic>>.from(body["data"]);
-      }
+      if (body["success"] == true) return List<Map<String, dynamic>>.from(body["data"]);
       return [];
     } catch (e) {
       return [];
@@ -133,12 +132,10 @@ class ApiService {
       if (category != null && category.isNotEmpty) params["category"] = category;
       if (city     != null && city.isNotEmpty)     params["city"]     = city;
 
-      final uri = Uri.parse("$baseUrl/providers/search").replace(queryParameters: params);
-      final res = await http.get(uri, headers: _headers);
+      final uri  = Uri.parse("$baseUrl/providers/search").replace(queryParameters: params);
+      final res  = await http.get(uri, headers: _headers);
       final body = jsonDecode(res.body);
-      if (body["success"] == true) {
-        return List<Map<String, dynamic>>.from(body["data"]);
-      }
+      if (body["success"] == true) return List<Map<String, dynamic>>.from(body["data"]);
       return [];
     } catch (e) {
       return [];
@@ -147,7 +144,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>?> getProviderProfile(int providerId) async {
     try {
-      final res = await http.get(Uri.parse("$baseUrl/providers/$providerId"), headers: _headers);
+      final res  = await http.get(Uri.parse("$baseUrl/providers/$providerId"), headers: _headers);
       final body = jsonDecode(res.body);
       if (body["success"] == true) return body["data"];
       return null;
@@ -159,7 +156,7 @@ class ApiService {
   static Future<Map<String, dynamic>> updateProviderProfile(
       int providerId, Map<String, dynamic> fields) async {
     try {
-      final res = await http.put(Uri.parse("$baseUrl/providers/$providerId"),
+      final res  = await http.put(Uri.parse("$baseUrl/providers/$providerId"),
           headers: _headers, body: jsonEncode(fields));
       final body = jsonDecode(res.body);
       return {"success": body["success"] == true, "message": body["message"] ?? "Unknown error"};
@@ -171,14 +168,14 @@ class ApiService {
   // ===================== MESSAGING =====================
 
   static Future<Map<String, dynamic>> sendMessage({
-    required int senderId,
+    required int    senderId,
     required String senderType,
-    required int receiverId,
+    required int    receiverId,
     required String receiverType,
     required String content,
   }) async {
     try {
-      final res = await http.post(Uri.parse("$baseUrl/messages/send"),
+      final res  = await http.post(Uri.parse("$baseUrl/messages/send"),
           headers: _headers,
           body: jsonEncode({
             "sender_id":     senderId,
@@ -199,11 +196,11 @@ class ApiService {
     required int providerId,
   }) async {
     try {
-      final uri = Uri.parse("$baseUrl/messages/conversation")
+      final uri  = Uri.parse("$baseUrl/messages/conversation")
           .replace(queryParameters: {
-        "client_id":   clientId.toString(),
-        "provider_id": providerId.toString(),
-      });
+            "client_id":   clientId.toString(),
+            "provider_id": providerId.toString(),
+          });
       final res  = await http.get(uri, headers: _headers);
       final body = jsonDecode(res.body);
       if (body["success"] == true) return List<Map<String, dynamic>>.from(body["data"]);
@@ -214,11 +211,11 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getConversations({
-    required int userId,
+    required int    userId,
     required String userType,
   }) async {
     try {
-      final uri = Uri.parse("$baseUrl/messages/conversations/$userId")
+      final uri  = Uri.parse("$baseUrl/messages/conversations/$userId")
           .replace(queryParameters: {"user_type": userType});
       final res  = await http.get(uri, headers: _headers);
       final body = jsonDecode(res.body);
@@ -230,12 +227,12 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> markMessagesRead({
-    required int clientId,
-    required int providerId,
+    required int    clientId,
+    required int    providerId,
     required String readerType,
   }) async {
     try {
-      final res = await http.put(Uri.parse("$baseUrl/messages/read"),
+      final res  = await http.put(Uri.parse("$baseUrl/messages/read"),
           headers: _headers,
           body: jsonEncode({
             "client_id":   clientId,
@@ -256,7 +253,7 @@ class ApiService {
     required int providerId,
   }) async {
     try {
-      final res = await http.post(Uri.parse("$baseUrl/favorites"),
+      final res  = await http.post(Uri.parse("$baseUrl/favorites"),
           headers: _headers,
           body: jsonEncode({"client_id": clientId, "provider_id": providerId}));
       final body = jsonDecode(res.body);
@@ -271,7 +268,7 @@ class ApiService {
     required int providerId,
   }) async {
     try {
-      final res = await http.delete(Uri.parse("$baseUrl/favorites"),
+      final res  = await http.delete(Uri.parse("$baseUrl/favorites"),
           headers: _headers,
           body: jsonEncode({"client_id": clientId, "provider_id": providerId}));
       final body = jsonDecode(res.body);
@@ -297,7 +294,7 @@ class ApiService {
     required int providerId,
   }) async {
     try {
-      final uri = Uri.parse("$baseUrl/favorites/check").replace(queryParameters: {
+      final uri  = Uri.parse("$baseUrl/favorites/check").replace(queryParameters: {
         "client_id":   clientId.toString(),
         "provider_id": providerId.toString(),
       });
@@ -312,13 +309,13 @@ class ApiService {
   // ===================== REVIEWS =====================
 
   static Future<Map<String, dynamic>> addReview({
-    required int providerId,
-    required int clientId,
+    required int    providerId,
+    required int    clientId,
     required double rating,
     String comment = "",
   }) async {
     try {
-      final res = await http.post(Uri.parse("$baseUrl/reviews"),
+      final res  = await http.post(Uri.parse("$baseUrl/reviews"),
           headers: _headers,
           body: jsonEncode({
             "provider_id": providerId,
@@ -360,7 +357,7 @@ class ApiService {
   static Future<Map<String, dynamic>> updateClient(
       int clientId, Map<String, dynamic> fields) async {
     try {
-      final res = await http.put(Uri.parse("$baseUrl/client/$clientId"),
+      final res  = await http.put(Uri.parse("$baseUrl/client/$clientId"),
           headers: _headers, body: jsonEncode(fields));
       final body = jsonDecode(res.body);
       return {"success": body["success"] == true, "message": body["message"] ?? "Unknown error"};
@@ -370,13 +367,13 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> changeClientPassword({
-    required int clientId,
+    required int    clientId,
     required String currentPassword,
     required String newPassword,
     required String newPassword2,
   }) async {
     try {
-      final res = await http.put(Uri.parse("$baseUrl/client/$clientId/password"),
+      final res  = await http.put(Uri.parse("$baseUrl/client/$clientId/password"),
           headers: _headers,
           body: jsonEncode({
             "current_password": currentPassword,
@@ -391,11 +388,11 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> deleteClient({
-    required int clientId,
+    required int    clientId,
     required String password,
   }) async {
     try {
-      final res = await http.delete(Uri.parse("$baseUrl/client/$clientId"),
+      final res  = await http.delete(Uri.parse("$baseUrl/client/$clientId"),
           headers: _headers, body: jsonEncode({"password": password}));
       final body = jsonDecode(res.body);
       return {"success": body["success"] == true, "message": body["message"] ?? "Unknown error"};
@@ -418,13 +415,13 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> changeProviderPassword({
-    required int providerId,
+    required int    providerId,
     required String currentPassword,
     required String newPassword,
     required String newPassword2,
   }) async {
     try {
-      final res = await http.put(Uri.parse("$baseUrl/provider/$providerId/password"),
+      final res  = await http.put(Uri.parse("$baseUrl/provider/$providerId/password"),
           headers: _headers,
           body: jsonEncode({
             "current_password": currentPassword,
@@ -439,11 +436,11 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> deleteProvider({
-    required int providerId,
+    required int    providerId,
     required String password,
   }) async {
     try {
-      final res = await http.delete(Uri.parse("$baseUrl/provider/$providerId"),
+      final res  = await http.delete(Uri.parse("$baseUrl/provider/$providerId"),
           headers: _headers, body: jsonEncode({"password": password}));
       final body = jsonDecode(res.body);
       return {"success": body["success"] == true, "message": body["message"] ?? "Unknown error"};
@@ -455,11 +452,11 @@ class ApiService {
   // ===================== NOTIFICATIONS =====================
 
   static Future<List<Map<String, dynamic>>> getNotifications({
-    required int userId,
+    required int    userId,
     required String userType,
   }) async {
     try {
-      final uri = Uri.parse("$baseUrl/notifications/$userId")
+      final uri  = Uri.parse("$baseUrl/notifications/$userId")
           .replace(queryParameters: {"user_type": userType});
       final res  = await http.get(uri, headers: _headers);
       final body = jsonDecode(res.body);
@@ -482,17 +479,98 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> markAllNotificationsRead({
-    required int userId,
+    required int    userId,
     required String userType,
   }) async {
     try {
-      final uri = Uri.parse("$baseUrl/notifications/readall/$userId")
+      final uri  = Uri.parse("$baseUrl/notifications/readall/$userId")
           .replace(queryParameters: {"user_type": userType});
       final res  = await http.put(uri, headers: _headers);
       final body = jsonDecode(res.body);
       return {"success": body["success"] == true, "message": body["message"] ?? "Unknown error"};
     } catch (e) {
       return {"success": false, "message": "Connection failed"};
+    }
+  }
+
+  // ===================== PHOTO UPLOAD =====================
+
+  static Future<Map<String, dynamic>> uploadProfilePhoto({
+    required int    userId,
+    required String role,
+    required String filePath,
+  }) async {
+    try {
+      final uri     = Uri.parse('$baseUrl/upload/profile-photo');
+      final request = http.MultipartRequest('POST', uri);
+      request.fields['user_id'] = userId.toString();
+      request.fields['role']    = role;
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+      final streamed = await request.send();
+      final res      = await http.Response.fromStream(streamed);
+      final body     = jsonDecode(res.body);
+
+      return {
+        'success':   body['success'] == true,
+        'message':   body['message']             ?? '',
+        'photo_url': body['data']?['photo_url']  ?? '',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Upload failed', 'photo_url': ''};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteProfilePhoto({
+    required int    userId,
+    required String role,
+  }) async {
+    try {
+      final res  = await http.delete(
+        Uri.parse('$baseUrl/upload/profile-photo'),
+        headers: _headers,
+        body:    jsonEncode({'user_id': userId, 'role': role}),
+      );
+      final body = jsonDecode(res.body);
+      return {'success': body['success'] == true, 'message': body['message'] ?? ''};
+    } catch (e) {
+      return {'success': false, 'message': 'Failed to delete photo'};
+    }
+  }
+  // ===================== PORTFOLIO =====================
+
+  static Future<Map<String, dynamic>> uploadPortfolioPhoto({
+    required int    providerId,
+    required String filePath,
+  }) async {
+    try {
+      final uri     = Uri.parse('\$baseUrl/upload/portfolio-photo');
+      final request = http.MultipartRequest('POST', uri);
+      request.fields['provider_id'] = providerId.toString();
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      final streamed = await request.send();
+      final res      = await http.Response.fromStream(streamed);
+      final body     = jsonDecode(res.body);
+      return {
+        'success':   body['success'] == true,
+        'photo_url': body['data']?['photo_url'] ?? '',
+      };
+    } catch (e) {
+      return {'success': false, 'photo_url': ''};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deletePortfolioPhoto(String filename) async {
+    try {
+      final res  = await http.delete(
+        Uri.parse('\$baseUrl/upload/portfolio-photo'),
+        headers: _headers,
+        body:    jsonEncode({'filename': filename}),
+      );
+      final body = jsonDecode(res.body);
+      return {'success': body['success'] == true};
+    } catch (e) {
+      return {'success': false};
     }
   }
 }

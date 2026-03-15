@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/l10n/language_provider.dart';
+import 'core/user_provider.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
@@ -9,9 +10,15 @@ void main() async {
   final languageProvider = LanguageProvider();
   await languageProvider.loadSavedLanguage();
 
+  final userProvider = UserProvider();
+  await userProvider.load();
+
   runApp(
-    ChangeNotifierProvider<LanguageProvider>.value(
-      value: languageProvider,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<LanguageProvider>.value(value: languageProvider),
+        ChangeNotifierProvider<UserProvider>.value(value: userProvider),
+      ],
       child: const AlooApp(),
     ),
   );
@@ -23,15 +30,12 @@ class AlooApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      builder: (context, child) {
-        return Directionality(
-          textDirection: lang.textDirection,
-          child: child!,
-        );
-      },
+      builder: (context, child) => Directionality(
+        textDirection: lang.textDirection,
+        child: child!,
+      ),
       home: const SplashScreen(),
     );
   }

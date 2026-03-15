@@ -280,7 +280,7 @@ const Map<String, Map<String, String>> appTranslations = {
     'ar': 'عرض الملف',
   },
 
-  // ─── CATEGORIES ───────────────────────────────────────────────────────────
+
   'cat_plumber': {
     'en': 'Plumber',
     'fr': 'Plombier',
@@ -342,7 +342,89 @@ const Map<String, Map<String, String>> appTranslations = {
     'ar': 'خدمات السيارات',
   },
 
-  // ─── SETTINGS ─────────────────────────────────────────────────────────────
+  // ─── MESSAGING ────────────────────────────────────────────────────────────
+  'messaging': {
+    'en': 'Messages',
+    'fr': 'Messagerie',
+    'ar': 'المحادثات',
+  },
+  'search_messages': {
+    'en': 'Search messages...',
+    'fr': 'Rechercher dans les messages...',
+    'ar': 'البحث في الرسائل...',
+  },
+  'no_conversations': {
+    'en': 'No conversations yet',
+    'fr': 'Aucune conversation',
+    'ar': 'لا توجد محادثات',
+  },
+  'no_conversations_sub': {
+    'en': 'Contact a provider to start chatting',
+    'fr': 'Contactez un prestataire pour démarrer',
+    'ar': 'تواصل مع مزود خدمة للبدء',
+  },
+  'no_results': {
+    'en': 'No results',
+    'fr': 'Aucun résultat',
+    'ar': 'لا توجد نتائج',
+  },
+  'no_results_sub': {
+    'en': 'Try another name',
+    'fr': 'Essayez un autre nom',
+    'ar': 'جرب اسمًا آخر',
+  },
+  'start_conversation': {
+    'en': 'Start a conversation...',
+    'fr': 'Commencer une conversation...',
+    'ar': 'ابدأ محادثة...',
+  },
+  'write_message': {
+    'en': 'Write a message...',
+    'fr': 'Écrire un message...',
+    'ar': 'اكتب رسالة...',
+  },
+  'today': {
+    'en': 'Today',
+    'fr': "Aujourd'hui",
+    'ar': 'اليوم',
+  },
+  'yesterday': {
+    'en': 'Yesterday',
+    'fr': 'Hier',
+    'ar': 'أمس',
+  },
+  'message_copied': {
+    'en': 'Message copied',
+    'fr': 'Message copié',
+    'ar': 'تم نسخ الرسالة',
+  },
+  'failed_to_send': {
+    'en': 'Failed to send message',
+    'fr': "Échec d'envoi",
+    'ar': 'فشل الإرسال',
+  },
+  'start_chat_with': {
+    'en': 'Start chatting',
+    'fr': 'Démarrer la conversation',
+    'ar': 'ابدأ المحادثة',
+  },
+  'send_first_message': {
+    'en': 'Send a message to get started',
+    'fr': 'Envoyez un message pour commencer',
+    'ar': 'أرسل رسالة للبدء',
+  },
+  'retry': {
+    'en': 'Retry',
+    'fr': 'Réessayer',
+    'ar': 'إعادة المحاولة',
+  },
+  'no_providers_found': {
+    'en': 'No providers found',
+    'fr': 'Aucun prestataire trouvé',
+    'ar': 'لا يوجد مزودو خدمة',
+  },
+
+  // ─── SETTINGS ────────────────────────────────────────────────────────────
   'settings': {
     'en': 'Settings',
     'fr': 'Paramètres',
@@ -432,5 +514,239 @@ const Map<String, Map<String, String>> appTranslations = {
     'en': 'Coming soon',
     'fr': 'Bientôt disponible',
     'ar': 'قريباً',
+  },
+
+  // ─── EDIT PROFILE ────────────────────────────────────────────────────────
+  'edit_profile': {
+    'en': 'Edit Profile',
+    'fr': 'Modifier le profil',
+    'ar': 'تعديل الملف الشخصي',
+  },
+  'choose_avatar': {
+    'en': 'Choose your avatar',
+    'fr': 'Choisissez votre avatar',
+    'ar': 'اختر صورتك الرمزية',
+  },
+  'upload_photo': {
+    'en': 'Upload a photo',
+    'fr': 'Télécharger une photo',
+    'ar': 'رفع صورة',
+  },
+  'take_photo': {
+    'en': 'Take a photo',
+    'fr': 'Prendre une photo',
+    'ar': 'التقاط صورة',
+  },
+  'choose_from_gallery': {
+    'en': 'Choose from gallery',
+    'fr': 'Choisir depuis la galerie',
+    'ar': 'اختر من المعرض',
+  },
+  'profile_photo': {
+    'en': 'Profile photo',
+    'fr': 'Photo de profil',
+    'ar': 'صورة الملف الشخصي',
+  },
+  'save_changes': {
+    'en': 'Save changes',
+    'fr': 'Enregistrer les modifications',
+    'ar': 'حفظ التغييرات',
+  },
+  'profile_updated': {
+    'en': 'Profile updated successfully',
+    'fr': 'Profil mis à jour avec succès',
+    'ar': 'تم تحديث الملف الشخصي بنجاح',
+  },
+  'name_label': {
+    'en': 'Full Name',
+    'fr': 'Nom complet',
+    'ar': 'الاسم الكامل',
+  },
+  'phone_label': {
+    'en': 'Phone',
+    'fr': 'Téléphone',
+    'ar': 'الهاتف',
+  },
+  'address_label': {
+    'en': 'Address',
+    'fr': 'Adresse',
+    'ar': 'العنوان',
+  },
+  'city_label': {
+    'en': 'City',
+    'fr': 'Ville',
+    'ar': 'المدينة',
+  },
+  'bio_label': {
+    'en': 'Bio',
+    'fr': 'Description',
+    'ar': 'نبذة تعريفية',
+  },
+
+  // ─── SETTINGS EXTRA ──────────────────────────────────────────────────────
+  'delete_account': {
+    'en': 'Delete Account',
+    'fr': 'Supprimer le compte',
+    'ar': 'حذف الحساب',
+  },
+  'delete_account_confirm': {
+    'en': 'This action is permanent and cannot be undone. Enter your password to confirm.',
+    'fr': 'Cette action est permanente et irréversible. Entrez votre mot de passe pour confirmer.',
+    'ar': 'هذا الإجراء دائم ولا يمكن التراجع عنه. أدخل كلمة المرور للتأكيد.',
+  },
+  'delete_my_account': {
+    'en': 'Delete My Account',
+    'fr': 'Supprimer mon compte',
+    'ar': 'حذف حسابي',
+  },
+  'role_label_client': {
+    'en': 'Client',
+    'fr': 'Client',
+    'ar': 'عميل',
+  },
+  'role_label_provider': {
+    'en': 'Provider',
+    'fr': 'Prestataire',
+    'ar': 'مزود خدمة',
+  },
+
+  // ─── PROVIDER PROFILE COMPLETION ────────────────────────────────────────
+  'complete_profile': {
+    'en': 'Complete your profile',
+    'fr': 'Complétez votre profil',
+    'ar': 'أكمل ملفك الشخصي',
+  },
+  'profile_completion': {
+    'en': 'Profile completion',
+    'fr': 'Complétion du profil',
+    'ar': 'اكتمال الملف الشخصي',
+  },
+  'add_skills': {
+    'en': 'Add your skills',
+    'fr': 'Ajoutez vos compétences',
+    'ar': 'أضف مهاراتك',
+  },
+  'add_portfolio': {
+    'en': 'Add portfolio photos',
+    'fr': 'Ajoutez des photos de portfolio',
+    'ar': 'أضف صور أعمالك',
+  },
+  'skills': {
+    'en': 'Skills',
+    'fr': 'Compétences',
+    'ar': 'المهارات',
+  },
+  'portfolio': {
+    'en': 'Portfolio',
+    'fr': 'Portfolio',
+    'ar': 'أعمالي',
+  },
+  'add_skill': {
+    'en': 'Add a skill',
+    'fr': 'Ajouter une compétence',
+    'ar': 'إضافة مهارة',
+  },
+  'skill_hint': {
+    'en': 'e.g. Pipe installation, Leak repair...',
+    'fr': 'ex: Installation de tuyaux, Réparation de fuites...',
+    'ar': 'مثال: تركيب الأنابيب، إصلاح التسربات...',
+  },
+  'add_photo': {
+    'en': 'Add photo',
+    'fr': 'Ajouter une photo',
+    'ar': 'إضافة صورة',
+  },
+  'profile_complete_msg': {
+    'en': 'Your profile is complete!',
+    'fr': 'Votre profil est complet !',
+    'ar': 'ملفك الشخصي مكتمل!',
+  },
+  'tap_to_add': {
+    'en': 'Tap to add',
+    'fr': 'Appuyez pour ajouter',
+    'ar': 'اضغط للإضافة',
+  },
+
+  // ─── FAVORITES ───────────────────────────────────────────────────────────
+  'favorites': {
+    'en': 'Favorites',
+    'fr': 'Favoris',
+    'ar': 'المفضلة',
+  },
+  'remove_favorite': {
+    'en': 'Remove from favorites',
+    'fr': 'Retirer des favoris',
+    'ar': 'إزالة من المفضلة',
+  },
+  'no_favorites': {
+    'en': 'No favorites yet',
+    'fr': 'Aucun favori',
+    'ar': 'لا توجد مفضلات',
+  },
+  'no_favorites_sub': {
+    'en': 'Save providers you like by tapping the heart on their profile',
+    'fr': 'Sauvegardez des prestataires en appuyant sur le cœur dans leur profil',
+    'ar': 'احفظ مزودي الخدمة بالضغط على القلب في ملفهم الشخصي',
+  },
+  'reviews': {
+    'en': 'Reviews',
+    'fr': 'Commentaires',
+    'ar': 'التقييمات',
+  },
+  'no_reviews': {
+    'en': 'No reviews yet',
+    'fr': 'Pas encore de commentaires',
+    'ar': 'لا توجد تقييمات بعد',
+  },
+  'view_all': {
+    'en': 'View all',
+    'fr': 'Voir tout',
+    'ar': 'عرض الكل',
+  },
+  // ─── PROVIDER DASHBOARD ──────────────────────────────────────────────────
+  'dashboard': {
+    'en': 'Dashboard',
+    'fr': 'Tableau de bord',
+    'ar': 'لوحة القيادة',
+  },
+  'reservations': {
+    'en': 'Reservations',
+    'fr': 'Réservations',
+    'ar': 'الحجوزات',
+  },
+  'available': {
+    'en': 'Available',
+    'fr': 'Disponible',
+    'ar': 'متاح',
+  },
+  'unavailable': {
+    'en': 'Unavailable',
+    'fr': 'Indisponible',
+    'ar': 'غير متاح',
+  },
+  'quick_actions': {
+    'en': 'Quick Actions',
+    'fr': 'Actions rapides',
+    'ar': 'إجراءات سريعة',
+  },
+  'my_reviews': {
+    'en': 'My Reviews',
+    'fr': 'Mes avis',
+    'ar': 'تقييماتي',
+  },
+  'rating': {
+    'en': 'Rating',
+    'fr': 'Note',
+    'ar': 'التقييم',
+  },
+  'no_reservations': {
+    'en': 'No reservations yet',
+    'fr': 'Aucune réservation',
+    'ar': 'لا توجد حجوزات',
+  },
+  'no_reservations_sub': {
+    'en': 'When clients accept your offers, they will appear here',
+    'fr': 'Quand les clients acceptent vos offres, elles apparaîtront ici',
+    'ar': 'عندما يقبل العملاء عروضك، ستظهر هنا',
   },
 };

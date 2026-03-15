@@ -5,8 +5,11 @@ import 'package:provider/provider.dart';
 import '../core/l10n/language_provider.dart';
 import '../services/api_services.dart';
 import '../core/storage/user_session.dart';
+import '../core/user_provider.dart';
 import '../screens/widgets/lang_toggle_button.dart';
 import 'home_screen.dart';
+import 'provider_home_screen.dart';
+import 'provider_setup_screen.dart';
 import 'signup_role_screen.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -78,19 +81,57 @@ class _SignInScreenState extends State<SignInScreen>
       if (!mounted) return;
       _showMessage(result['message']);
       if (result['success'] == true) {
+        // Preserve existing avatar selection across logout/login
+        final existing     = await UserSession.load();
+        final avatarIndex  = existing['avatar_index'] ?? 0;
+
         await UserSession.save(
-          fullName: result['full_name'] ?? '',
-          email:    result['email']     ?? _emailCtrl.text.trim(),
-          role:     result['role']      ?? 'client',
-          id:       result['id']        ?? 0,
+          id:          result['id']        ?? 0,
+          fullName:    result['full_name'] ?? '',
+          email:       result['email']     ?? _emailCtrl.text.trim(),
+          role:        result['role']      ?? 'client',
+          avatarIndex: avatarIndex,
         );
         if (!mounted) return;
-        Navigator.pushReplacement(context,
-            MaterialPageRoute(
-              builder: (_) => homeScreen(
-                fullName: result['full_name'] ?? '',
-              ),
-            ));
+        await context.read<UserProvider>().load();
+
+        final role = result['role'] ?? 'client';
+
+        // ── PROVIDER ROUTING ─────────────────────────────────────
+        if (role == 'provider') {
+          Map<String, dynamic>? profile;
+          try {
+            profile = await ApiService.getProviderSettings(result['id'] ?? 0);
+          } catch (_) {}
+
+          final skills    = profile?['skills'];
+          final portfolio = profile?['portfolio'];
+          final photo     = profile?['profile_photo'];
+          final isIncomplete = photo == null ||
+              skills == null ||
+              portfolio == null ||
+              (skills as String).isEmpty ||
+              (portfolio as String).isEmpty;
+
+          if (!mounted) return;
+
+          if (isIncomplete) {
+            // First time → complete profile
+            Navigator.pushReplacement(context, MaterialPageRoute(
+              builder: (_) => const ProviderSetupScreen(isFirstTime: true)));
+          } else {
+            // Profile complete → Provider Home
+            Navigator.pushReplacement(context, MaterialPageRoute(
+              builder: (_) => const ProviderHomeScreen()));
+          }
+          setState(() => _isLoading = false);
+          return;
+        }
+
+        // ── CLIENT ROUTING ───────────────────────────────────────
+        if (!mounted) return;
+        Navigator.pushReplacement(context, MaterialPageRoute(
+          builder: (_) => homeScreen(fullName: result['full_name'] ?? '')));
       }
     } catch (_) {
       if (mounted) _showMessage(lang.t('connection_error'));
@@ -137,6 +178,7 @@ class _SignInScreenState extends State<SignInScreen>
             SafeArea(
               child: Stack(
                 children: [
+                  // ── Animated logo + form ─────────────────────────
                   AnimatedBuilder(
                     animation: _controller,
                     builder: (context, _) {
@@ -169,7 +211,9 @@ class _SignInScreenState extends State<SignInScreen>
                                   onTogglePassword: () => setState(
                                       () => _obscurePassword =
                                           !_obscurePassword),
-                                  onSignIn: _isLoading ? null : _handleSignIn,
+                                  onSignIn: _isLoading
+                                      ? null
+                                      : _handleSignIn,
                                   onForgot: () {},
                                   onGoToSignUp: () => Navigator.push(
                                     context,
@@ -186,6 +230,7 @@ class _SignInScreenState extends State<SignInScreen>
                     },
                   ),
 
+                  // ── Language toggle top-right ────────────────────
                   Positioned(
                     top: 8,
                     right: 12,
@@ -200,6 +245,8 @@ class _SignInScreenState extends State<SignInScreen>
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _SignInCard extends StatelessWidget {
   final LanguageProvider lang;

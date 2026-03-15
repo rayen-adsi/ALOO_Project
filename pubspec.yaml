@@ -33,6 +33,8 @@ dependencies:
   http: ^1.1.0
   provider: ^6.1.2
 
+  flutter_svg: ^2.0.10+1
+  image_picker: ^1.0.7
   shared_preferences: ^2.2.3
 
   # The following adds the Cupertino Icons font to your application.
@@ -103,3 +105,4 @@ flutter:
     - assets/images/onboarding3.png
     - assets/images/bg_client.png
     - assets/images/bg_provider.png
+    - assets/images/avatars/

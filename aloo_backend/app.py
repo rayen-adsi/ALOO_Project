@@ -1,3 +1,4 @@
+﻿# -*- coding: utf-8 -*-
 import re
 import os
 import uuid
@@ -14,7 +15,10 @@ CORS(app)
 
 # ===================== DATABASE CONFIG =====================
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:rayen123@localhost/aloo_db"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:rayen123@localhost/aloo_db",
+)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db      = SQLAlchemy(app)
@@ -144,8 +148,8 @@ def update_provider_rating(provider_id):
         db.session.commit()
 
 VALID_CATEGORIES = [
-    "Plombier", "Électricien", "Mécanicien",
-    "Femme de ménage", "Professeur", "Développeur", "Réparation domicile"
+    "Plombier", "Electricien", "Mecanicien",
+    "Femme de menage", "Professeur", "Developpeur", "Reparation domicile"
 ]
 
 # ===================== PING =====================
@@ -665,7 +669,7 @@ def add_review():
 
     db.session.add(Notification(user_id=provider_id, user_type="provider",
                                 type="new_review",
-                                message=f"You received a new {rating}★ review"))
+                                message=f"You received a new {rating}â˜… review"))
     db.session.commit()
     return ok(message="Review submitted successfully")
 

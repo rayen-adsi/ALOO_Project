@@ -81,9 +81,8 @@ class _SignInScreenState extends State<SignInScreen>
       if (!mounted) return;
       _showMessage(result['message']);
       if (result['success'] == true) {
-        // Preserve existing avatar selection across logout/login
-        final existing     = await UserSession.load();
-        final avatarIndex  = existing['avatar_index'] ?? 0;
+        // ✅ FIX: Use avatar_index from backend login response
+        final avatarIndex = result['avatar_index'] ?? 0;
 
         await UserSession.save(
           id:          result['id']        ?? 0,

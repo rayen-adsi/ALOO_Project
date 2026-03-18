@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'storage/user_session.dart';
+import '../services/api_services.dart';
 
 /// Global user state — all pages listen to this.
 /// When avatar or name changes, all pages rebuild instantly.
@@ -20,7 +21,7 @@ class UserProvider extends ChangeNotifier {
   int     get avatarIndex => _avatarIndex;
   String? get photoPath   => _photoPath;
 
-  /// Load from session — call on app start and after login
+  /// Load from session + fetch photo from backend
   Future<void> load() async {
     final s  = await UserSession.load();
     _fullName    = s['full_name']    ?? '';
@@ -28,6 +29,24 @@ class UserProvider extends ChangeNotifier {
     _role        = s['role']         ?? 'client';
     _userId      = s['id']           ?? 0;
     _avatarIndex = s['avatar_index'] ?? 0;
+
+    // ✅ FIX: Fetch the profile photo from the backend
+    if (_userId > 0) {
+      try {
+        Map<String, dynamic>? profile;
+        if (_role == 'client') {
+          profile = await ApiService.getClient(_userId);
+        } else {
+          profile = await ApiService.getProviderSettings(_userId);
+        }
+        if (profile != null && profile['profile_photo'] != null) {
+          _photoPath = profile['profile_photo'] as String;
+        }
+      } catch (_) {
+        // If network fails, keep photoPath as null — avatar will show instead
+      }
+    }
+
     notifyListeners();
   }
 

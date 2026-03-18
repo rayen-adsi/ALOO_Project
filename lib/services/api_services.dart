@@ -28,12 +28,13 @@ class ApiService {
           body: jsonEncode({"email": email, "password": password}));
       final body = jsonDecode(res.body);
       return {
-        "success":   body["success"] == true,
-        "message":   body["message"]           ?? "Unknown error",
-        "role":      body["data"]?["role"]      ?? "",
-        "id":        body["data"]?["id"]        ?? 0,
-        "full_name": body["data"]?["full_name"] ?? "",
-        "email":     body["data"]?["email"]     ?? "",
+        "success":      body["success"] == true,
+        "message":      body["message"]              ?? "Unknown error",
+        "role":         body["data"]?["role"]         ?? "",
+        "id":           body["data"]?["id"]           ?? 0,
+        "full_name":    body["data"]?["full_name"]    ?? "",
+        "email":        body["data"]?["email"]        ?? "",
+        "avatar_index": body["data"]?["avatar_index"] ?? 0,
       };
     } catch (e) {
       return {"success": false, "message": "Connection failed"};
@@ -537,14 +538,16 @@ class ApiService {
       return {'success': false, 'message': 'Failed to delete photo'};
     }
   }
+
   // ===================== PORTFOLIO =====================
 
+  // ✅ FIXED: Changed '\$baseUrl' to '$baseUrl'
   static Future<Map<String, dynamic>> uploadPortfolioPhoto({
     required int    providerId,
     required String filePath,
   }) async {
     try {
-      final uri     = Uri.parse('\$baseUrl/upload/portfolio-photo');
+      final uri     = Uri.parse('$baseUrl/upload/portfolio-photo');
       final request = http.MultipartRequest('POST', uri);
       request.fields['provider_id'] = providerId.toString();
       request.files.add(await http.MultipartFile.fromPath('file', filePath));
@@ -560,10 +563,11 @@ class ApiService {
     }
   }
 
+  // ✅ FIXED: Changed '\$baseUrl' to '$baseUrl'
   static Future<Map<String, dynamic>> deletePortfolioPhoto(String filename) async {
     try {
       final res  = await http.delete(
-        Uri.parse('\$baseUrl/upload/portfolio-photo'),
+        Uri.parse('$baseUrl/upload/portfolio-photo'),
         headers: _headers,
         body:    jsonEncode({'filename': filename}),
       );
@@ -571,6 +575,33 @@ class ApiService {
       return {'success': body['success'] == true};
     } catch (e) {
       return {'success': false};
+    }
+  }
+  // ===================== CHAT MEDIA UPLOAD =====================
+ 
+  static Future<Map<String, dynamic>> uploadChatMedia({
+    required int    userId,
+    required String role,
+    required String filePath,
+  }) async {
+    try {
+      final uri     = Uri.parse('$baseUrl/upload/chat-media');
+      final request = http.MultipartRequest('POST', uri);
+      request.fields['user_id'] = userId.toString();
+      request.fields['role']    = role;
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+ 
+      final streamed = await request.send();
+      final res      = await http.Response.fromStream(streamed);
+      final body     = jsonDecode(res.body);
+ 
+      return {
+        'success':   body['success'] == true,
+        'message':   body['message']             ?? '',
+        'photo_url': body['data']?['photo_url']  ?? '',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Upload failed', 'photo_url': ''};
     }
   }
 }

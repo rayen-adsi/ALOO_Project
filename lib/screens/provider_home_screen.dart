@@ -25,6 +25,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   String _userRole = 'provider';
 
   final _convKey = GlobalKey<ConversationsScreenState>();
+  final _resKey  = GlobalKey<ReservationsTabState>();
 
   @override
   void initState() {
@@ -47,7 +48,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
     final List<Widget> tabs = [
       ProviderDashboardTab(userId: _userId),
-      ProviderReservationsTab(userId: _userId),
+      ReservationsTab(key: _resKey, userId: _userId, userRole: _userRole),
       ConversationsScreen(
         key:      _convKey,
         userId:   _userId,
@@ -66,6 +67,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           lang:         lang,
           onTap: (i) {
             setState(() => _currentNav = i);
+            if (i == 1) _resKey.currentState?.reload();
             if (i == 2) _convKey.currentState?.reload();
           },
         ),

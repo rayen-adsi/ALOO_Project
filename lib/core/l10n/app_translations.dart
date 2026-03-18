@@ -749,4 +749,210 @@ const Map<String, Map<String, String>> appTranslations = {
     'fr': 'Quand les clients acceptent vos offres, elles apparaîtront ici',
     'ar': 'عندما يقبل العملاء عروضك، ستظهر هنا',
   },
+  // ─── SERVICE OFFER ───────────────────────────────────────────────────────
+  'service_offer': {
+    'en': 'Service Offer',
+    'fr': 'Offre de service',
+    'ar': 'عرض خدمة',
+  },
+  'create_offer': {
+    'en': 'Create Offer',
+    'fr': 'Créer une offre',
+    'ar': 'إنشاء عرض',
+  },
+  'send_offer': {
+    'en': 'Send Offer',
+    'fr': 'Envoyer l\'offre',
+    'ar': 'إرسال العرض',
+  },
+  'offer_description': {
+    'en': 'Description',
+    'fr': 'Description',
+    'ar': 'الوصف',
+  },
+  'offer_description_hint': {
+    'en': 'What service will you provide?',
+    'fr': 'Quel service allez-vous fournir ?',
+    'ar': 'ما الخدمة التي ستقدمها؟',
+  },
+  'offer_address_hint': {
+    'en': 'Where will the service take place?',
+    'fr': 'Où aura lieu le service ?',
+    'ar': 'أين سيتم تقديم الخدمة؟',
+  },
+  'pick_date': {
+    'en': 'Pick date',
+    'fr': 'Choisir la date',
+    'ar': 'اختر التاريخ',
+  },
+  'pick_time': {
+    'en': 'Pick time',
+    'fr': 'Choisir l\'heure',
+    'ar': 'اختر الوقت',
+  },
+  'at': {
+    'en': 'at',
+    'fr': 'à',
+    'ar': 'في',
+  },
+  'accept': {
+    'en': 'Accept',
+    'fr': 'Accepter',
+    'ar': 'قبول',
+  },
+  'refuse': {
+    'en': 'Refuse',
+    'fr': 'Refuser',
+    'ar': 'رفض',
+  },
+  'offer_pending': {
+    'en': 'Pending',
+    'fr': 'En attente',
+    'ar': 'قيد الانتظار',
+  },
+  'offer_accepted': {
+    'en': 'Accepted',
+    'fr': 'Acceptée',
+    'ar': 'مقبول',
+  },
+  'offer_refused': {
+    'en': 'Refused',
+    'fr': 'Refusée',
+    'ar': 'مرفوض',
+  },
+   'send_media': {
+    'en': 'Send Media',
+     'fr': 'Envoyer un média',
+     'ar': 'إرسال وسائط',
+   },
+   'send_video': {
+     'en': 'Record or choose video',
+     'fr': 'Enregistrer ou choisir une vidéo',
+     'ar': 'تسجيل أو اختيار فيديو',
+   },
+ // ─────────────────────────────────────────────────────────────────────────────
+// NEW TRANSLATION KEYS — ADD TO app_translations.dart
+// For reservations tab + review system
+// ─────────────────────────────────────────────────────────────────────────────
+
+  'filter_all': {
+    'en': 'All',
+    'fr': 'Tout',
+    'ar': 'الكل',
+  },
+  'filter_upcoming': {
+    'en': 'Upcoming',
+    'fr': 'À venir',
+    'ar': 'القادمة',
+  },
+  'filter_completed': {
+    'en': 'Completed',
+    'fr': 'Terminées',
+    'ar': 'مكتملة',
+  },
+  'status_upcoming': {
+    'en': 'Upcoming',
+    'fr': 'À venir',
+    'ar': 'قادمة',
+  },
+  'status_ready': {
+    'en': 'Ready to complete',
+    'fr': 'Prêt à terminer',
+    'ar': 'جاهز للإكمال',
+  },
+  'status_completed': {
+    'en': 'Completed',
+    'fr': 'Terminée',
+    'ar': 'مكتملة',
+  },
+  'provider': {
+    'en': 'Provider',
+    'fr': 'Prestataire',
+    'ar': 'مزود الخدمة',
+  },
+  'client': {
+    'en': 'Client',
+    'fr': 'Client',
+    'ar': 'العميل',
+  },
+  'mark_completed': {
+    'en': 'Complete & Review',
+    'fr': 'Terminer et évaluer',
+    'ar': 'إكمال وتقييم',
+  },
+  'reviewed': {
+    'en': 'Reviewed',
+    'fr': 'Évalué',
+    'ar': 'تم التقييم',
+  },
+  'review_submitted': {
+    'en': 'Review submitted successfully!',
+    'fr': 'Avis envoyé avec succès !',
+    'ar': 'تم إرسال التقييم بنجاح!',
+  },
+  'rate_provider': {
+    'en': 'Rate this provider',
+    'fr': 'Évaluez ce prestataire',
+    'ar': 'قيّم هذا المزود',
+  },
+  'how_was_service': {
+    'en': 'How was the service?',
+    'fr': 'Comment était le service ?',
+    'ar': 'كيف كانت الخدمة؟',
+  },
+  'review_comment_hint': {
+    'en': 'Share your experience (optional)',
+    'fr': 'Partagez votre expérience (optionnel)',
+    'ar': 'شارك تجربتك (اختياري)',
+  },
+  'submit_review': {
+    'en': 'Submit Review',
+    'fr': 'Envoyer l\'avis',
+    'ar': 'إرسال التقييم',
+  },
+  'rating_1': {
+    'en': 'Terrible',
+    'fr': 'Terrible',
+    'ar': 'سيء جداً',
+  },
+  'rating_2': {
+    'en': 'Poor',
+    'fr': 'Mauvais',
+    'ar': 'سيء',
+  },
+  'rating_3': {
+    'en': 'Average',
+    'fr': 'Moyen',
+    'ar': 'متوسط',
+  },
+  'rating_4': {
+    'en': 'Good',
+    'fr': 'Bien',
+    'ar': 'جيد',
+  },
+  'rating_5': {
+    'en': 'Excellent!',
+    'fr': 'Excellent !',
+    'ar': 'ممتاز!',
+  },
+  // ─────────────────────────────────────────────────────────────────────────────
+// NEW TRANSLATION KEYS — ADD TO app_translations.dart
+// For the reservation banner in conversations page
+// ─────────────────────────────────────────────────────────────────────────────
+
+  'my_reservations': {
+    'en': 'My Reservations',
+    'fr': 'Mes réservations',
+    'ar': 'حجوزاتي',
+  },
+  'active_reservations': {
+    'en': 'active reservations',
+    'fr': 'réservations actives',
+    'ar': 'حجوزات نشطة',
+  },
+  'view_reservations': {
+    'en': 'View your reservations',
+    'fr': 'Voir vos réservations',
+    'ar': 'عرض حجوزاتك',
+  },
 };

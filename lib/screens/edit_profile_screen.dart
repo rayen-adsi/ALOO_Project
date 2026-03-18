@@ -148,12 +148,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (_) {}
 
     if (!mounted) return;
+
+    // ✅ Get avatar_index from backend if available, fallback to local
+    final backendAvatar = (profile?['avatar_index'] as int?) ?? avatarIdx;
+
     setState(() {
       _fullName     = session['full_name'] ?? '';
       _email        = session['email']     ?? '';
       _role         = role;
       _userId       = userId;
-      _avatarIndex  = (avatarIdx as int).clamp(0, kAvatarCount - 1);
+      _avatarIndex  = (backendAvatar as int).clamp(0, kAvatarCount - 1);
       _tempAvatar   = _avatarIndex;
       _networkPhoto = profile?['profile_photo'] as String?;
 
@@ -185,17 +189,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         await ApiService.deleteProfilePhoto(userId: _userId, role: _role);
       }
 
+      // ✅ Save profile data INCLUDING avatar_index to backend
       if (_role == 'client') {
         await ApiService.updateClient(_userId, {
-          'full_name': _nameCtrl.text.trim(),
-          'phone':     _phoneCtrl.text.trim(),
-          'address':   _addressCtrl.text.trim(),
+          'full_name':    _nameCtrl.text.trim(),
+          'phone':        _phoneCtrl.text.trim(),
+          'address':      _addressCtrl.text.trim(),
+          'avatar_index': _tempAvatar,
         });
       } else {
         await ApiService.updateProviderProfile(_userId, {
-          'bio':     _bioCtrl.text.trim(),
-          'city':    _cityCtrl.text.trim(),
-          'address': _addressCtrl.text.trim(),
+          'bio':          _bioCtrl.text.trim(),
+          'city':         _cityCtrl.text.trim(),
+          'address':      _addressCtrl.text.trim(),
+          'avatar_index': _tempAvatar,
         });
       }
 

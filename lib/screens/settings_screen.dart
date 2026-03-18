@@ -224,13 +224,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                // ✅ Translated
                 Text(lang.t('delete_account'),
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w800,
                         color: Colors.red)),
                 const SizedBox(height: 8),
-                // ✅ Translated
                 Text(
                   lang.t('delete_account_confirm'),
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
@@ -288,7 +286,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: isLoading
                         ? const SizedBox(width: 22, height: 22,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        // ✅ Translated
                         : Text(lang.t('delete_my_account'),
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
                   ),
@@ -360,7 +357,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onTap: () async {
                           final updated = await Navigator.push(context,
                             MaterialPageRoute(builder: (_) => const EditProfileScreen()));
-                          if (updated == true) _loadUser();
+                          if (updated == true) {
+                            _loadUser();
+                            // ✅ FIX: Reload UserProvider to refresh photo everywhere
+                            if (mounted) await context.read<UserProvider>().load();
+                          }
                         },
                         child: Container(
                         padding: const EdgeInsets.all(18),
@@ -377,16 +378,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         child: Row(
                           children: [
+                            // ✅ FIX: Use UserProvider photoPath for the avatar
                             UserAvatar(
                               avatarIndex: user.avatarIndex,
                               photoPath:   user.photoPath,
                               size:        56,
                               showBorder:  false,
-                              onTap: () async {
-                                final updated = await Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => const EditProfileScreen()));
-                                if (updated == true) _loadUser();
-                              },
                             ),
                             const SizedBox(width: 16),
                             Expanded(
@@ -411,7 +408,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  // ✅ Role badge — translated
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 2),
@@ -440,7 +436,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                       ),
-                      ), // GestureDetector
+                      ),
                     ),
 
                     const SizedBox(height: 16),
@@ -521,10 +517,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         child: Column(
                           children: [
-                            // ✅ Translated
                             _ActionRow(icon: Icons.lock_outline_rounded,   iconColor: const Color(0xFF8B5CF6), label: lang.t('change_password'), onTap: _showChangePassword),
                             _Divider(),
-                            // ✅ Translated
                             _ActionRow(icon: Icons.delete_outline_rounded, iconColor: Colors.red.shade400,     label: lang.t('delete_account'),  onTap: _showDeleteAccount),
                           ],
                         ),
@@ -572,7 +566,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           onPressed: _logout,
                           icon: const Icon(Icons.logout_rounded),
-                          // ✅ Translated
                           label: Text(lang.t('logout'),
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                         ),
@@ -768,8 +761,8 @@ class _ProviderCompletionBannerState extends State<_ProviderCompletionBanner> {
         _pct = calcCompletion(
           hasPhoto:     p?['profile_photo'] != null,
           hasBio:       (p?['bio'] ?? '').length >= 10,
-          hasSkills:    p?['skills'] != null && (p!['skills'] as String).isNotEmpty,
-          hasPortfolio: p?['portfolio'] != null && (p!['portfolio'] as String).isNotEmpty,
+          hasSkills:    p?['skills'] != null && (p!['skills'] as String).isNotEmpty && p!['skills'] != '[]',
+          hasPortfolio: p?['portfolio'] != null && (p!['portfolio'] as String).isNotEmpty && p!['portfolio'] != '[]',
         );
       });
     } catch (_) {}

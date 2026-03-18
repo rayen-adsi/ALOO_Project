@@ -46,6 +46,7 @@ class Client(db.Model):
     password      = db.Column(db.String(255), nullable=False)
     address       = db.Column(db.String(255), nullable=False)
     profile_photo = db.Column(db.Text, nullable=True)
+    avatar_index  = db.Column(db.Integer, default=0)          # ✅ NEW
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Provider(db.Model):
@@ -60,8 +61,9 @@ class Provider(db.Model):
     address        = db.Column(db.String(255), nullable=False)
     bio            = db.Column(db.Text, nullable=False)
     profile_photo  = db.Column(db.Text, nullable=True)
-    skills         = db.Column(db.Text, nullable=True)   # JSON array of strings
-    portfolio      = db.Column(db.Text, nullable=True)   # JSON array of photo URLs
+    avatar_index   = db.Column(db.Integer, default=0)          # ✅ NEW
+    skills         = db.Column(db.Text, nullable=True)
+    portfolio      = db.Column(db.Text, nullable=True)
     rating         = db.Column(db.Float, default=0.0)
     total_reviews  = db.Column(db.Integer, default=0)
     is_verified    = db.Column(db.Boolean, default=False)
@@ -172,12 +174,10 @@ def upload_profile_photo():
     if not user_id:
         return err('user_id is required')
 
-    # Unique filename
     ext      = file.filename.rsplit('.', 1)[1].lower()
     filename = f"{role}_{user_id}_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
-    # Delete previous photo for this user
     for f in os.listdir(app.config['UPLOAD_FOLDER']):
         if f.startswith(f"{role}_{user_id}_"):
             try:
@@ -205,7 +205,64 @@ def upload_profile_photo():
 
 @app.route('/uploads/profiles/<filename>')
 def serve_photo(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if not os.path.exists(filepath):
+        return err('File not found', 404)
+
+    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+
+    # MIME types
+    mime_map = {
+        'mp4': 'video/mp4', 'mov': 'video/quicktime',
+        'avi': 'video/x-msvideo', 'mkv': 'video/x-matroska',
+        'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+        'webp': 'image/webp',
+    }
+    mimetype = mime_map.get(ext, 'application/octet-stream')
+
+    # For video files: support Range requests (needed for Android video player)
+    if ext in ('mp4', 'mov', 'avi', 'mkv'):
+        from flask import Response
+        file_size = os.path.getsize(filepath)
+        range_header = request.headers.get('Range')
+
+        if range_header:
+            # Parse range header: "bytes=0-1024"
+            byte_start = 0
+            byte_end = file_size - 1
+            range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
+            if range_match:
+                byte_start = int(range_match.group(1))
+                if range_match.group(2):
+                    byte_end = int(range_match.group(2))
+
+            content_length = byte_end - byte_start + 1
+
+            def generate():
+                with open(filepath, 'rb') as f:
+                    f.seek(byte_start)
+                    remaining = content_length
+                    while remaining > 0:
+                        chunk_size = min(8192, remaining)
+                        data = f.read(chunk_size)
+                        if not data:
+                            break
+                        remaining -= len(data)
+                        yield data
+
+            resp = Response(generate(), status=206, mimetype=mimetype)
+            resp.headers['Content-Range'] = f'bytes {byte_start}-{byte_end}/{file_size}'
+            resp.headers['Accept-Ranges'] = 'bytes'
+            resp.headers['Content-Length'] = str(content_length)
+            return resp
+        else:
+            resp = send_from_directory(app.config['UPLOAD_FOLDER'], filename, mimetype=mimetype)
+            resp.headers['Accept-Ranges'] = 'bytes'
+            resp.headers['Content-Length'] = str(file_size)
+            return resp
+
+    # For images: simple serve
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename, mimetype=mimetype)
 
 
 @app.route('/upload/profile-photo', methods=['DELETE'])
@@ -261,10 +318,11 @@ def login():
         return err("Wrong password", 401)
 
     return ok({
-        "role":      role,
-        "id":        user.id,
-        "full_name": user.full_name,
-        "email":     user.email,
+        "role":         role,
+        "id":           user.id,
+        "full_name":    user.full_name,
+        "email":        user.email,
+        "avatar_index": user.avatar_index or 0,    # ✅ NEW
     }, "Login successful")
 
 
@@ -370,7 +428,7 @@ def get_providers():
         "id": p.id, "full_name": p.full_name, "category": p.category,
         "city": p.city, "bio": p.bio, "rating": p.rating,
         "total_reviews": p.total_reviews, "is_verified": p.is_verified,
-        "profile_photo": p.profile_photo,
+        "profile_photo": p.profile_photo, "avatar_index": p.avatar_index or 0,
     } for p in providers])
 
 
@@ -393,7 +451,7 @@ def search_providers():
         "id": p.id, "full_name": p.full_name, "category": p.category,
         "city": p.city, "bio": p.bio, "rating": p.rating,
         "total_reviews": p.total_reviews, "is_verified": p.is_verified,
-        "profile_photo": p.profile_photo,
+        "profile_photo": p.profile_photo, "avatar_index": p.avatar_index or 0,
     } for p in providers])
 
 
@@ -409,11 +467,12 @@ def get_provider(provider_id):
     for r in reviews:
         client = Client.query.get(r.client_id)
         reviews_data.append({
-            "client_name":  client.full_name if client else "Unknown",
-            "client_photo": client.profile_photo if client else None,
-            "rating":       r.rating,
-            "comment":      r.comment,
-            "created_at":   r.created_at.isoformat(),
+            "client_name":   client.full_name if client else "Unknown",
+            "client_photo":  client.profile_photo if client else None,
+            "client_avatar": client.avatar_index if client else 0,   # ✅ NEW
+            "rating":        r.rating,
+            "comment":       r.comment,
+            "created_at":    r.created_at.isoformat(),
         })
 
     return ok({
@@ -422,6 +481,7 @@ def get_provider(provider_id):
         "address": p.address, "bio": p.bio, "rating": p.rating,
         "total_reviews": p.total_reviews, "is_verified": p.is_verified,
         "is_active": p.is_active, "profile_photo": p.profile_photo,
+        "avatar_index": p.avatar_index or 0,                          # ✅ NEW
         "skills": p.skills, "portfolio": p.portfolio,
         "reviews": reviews_data,
     })
@@ -441,6 +501,7 @@ def update_provider(provider_id):
     if "is_active"     in data: p.is_active     = data["is_active"]
     if "skills"        in data: p.skills        = data["skills"]
     if "portfolio"     in data: p.portfolio     = data["portfolio"]
+    if "avatar_index"  in data: p.avatar_index  = data["avatar_index"]  # ✅ NEW
     db.session.commit()
     return ok(message="Profile updated successfully")
 
@@ -528,6 +589,8 @@ def get_conversations(user_id):
             result.append({
                 "provider_id":       pid,
                 "provider_name":     provider.full_name,
+                "provider_photo":    provider.profile_photo,          # ✅ NEW
+                "provider_avatar":   provider.avatar_index or 0,      # ✅ NEW
                 "category":          provider.category,
                 "city":              provider.city,
                 "last_message":      last_msg.content if last_msg else "",
@@ -561,6 +624,8 @@ def get_conversations(user_id):
             result.append({
                 "client_id":         cid,
                 "client_name":       client.full_name,
+                "client_photo":      client.profile_photo,            # ✅ NEW
+                "client_avatar":     client.avatar_index or 0,        # ✅ NEW
                 "last_message":      last_msg.content if last_msg else "",
                 "last_message_time": last_msg.created_at.isoformat() if last_msg else "",
                 "unread_count":      unread,
@@ -632,6 +697,7 @@ def get_favorites(client_id):
             result.append({
                 "id": p.id, "full_name": p.full_name, "category": p.category,
                 "city": p.city, "rating": p.rating, "profile_photo": p.profile_photo,
+                "avatar_index": p.avatar_index or 0,   # ✅ NEW
             })
     return ok(result)
 
@@ -678,11 +744,13 @@ def get_reviews(provider_id):
     for r in reviews:
         client = Client.query.get(r.client_id)
         result.append({
-            "id":          r.id,
-            "client_name": client.full_name if client else "Unknown",
-            "rating":      r.rating,
-            "comment":     r.comment,
-            "created_at":  r.created_at.isoformat(),
+            "id":            r.id,
+            "client_name":   client.full_name if client else "Unknown",
+            "client_photo":  client.profile_photo if client else None,
+            "client_avatar": client.avatar_index if client else 0,    # ✅ NEW
+            "rating":        r.rating,
+            "comment":       r.comment,
+            "created_at":    r.created_at.isoformat(),
         })
     return ok(result)
 
@@ -696,6 +764,7 @@ def get_client(client_id):
     return ok({
         "id": c.id, "full_name": c.full_name, "email": c.email,
         "phone": c.phone, "address": c.address, "profile_photo": c.profile_photo,
+        "avatar_index": c.avatar_index or 0,                         # ✅ NEW
         "created_at": c.created_at.isoformat(),
     })
 
@@ -711,6 +780,7 @@ def update_client(client_id):
     if "phone"         in data: c.phone         = data["phone"]
     if "address"       in data: c.address       = data["address"]
     if "profile_photo" in data: c.profile_photo = data["profile_photo"]
+    if "avatar_index"  in data: c.avatar_index  = data["avatar_index"]  # ✅ NEW
     db.session.commit()
     return ok(message="Profile updated successfully")
 
@@ -765,6 +835,7 @@ def get_provider_settings(provider_id):
         "id": p.id, "full_name": p.full_name, "email": p.email,
         "phone": p.phone, "category": p.category, "city": p.city,
         "address": p.address, "bio": p.bio, "profile_photo": p.profile_photo,
+        "avatar_index": p.avatar_index or 0,                          # ✅ NEW
         "rating": p.rating, "total_reviews": p.total_reviews,
         "is_verified": p.is_verified, "is_active": p.is_active,
         "skills": p.skills, "portfolio": p.portfolio,
@@ -850,7 +921,6 @@ def mark_all_notifications_read(user_id):
 
 @app.route('/upload/portfolio-photo', methods=['POST'])
 def upload_portfolio_photo():
-    """Upload a portfolio photo for a provider."""
     if 'file' not in request.files:
         return err('No file provided')
 
@@ -875,7 +945,6 @@ def upload_portfolio_photo():
 
 @app.route('/upload/portfolio-photo', methods=['DELETE'])
 def delete_portfolio_photo():
-    """Delete a portfolio photo by filename."""
     data     = request.json
     filename = data.get('filename', '')
     if filename:
@@ -886,6 +955,36 @@ def delete_portfolio_photo():
         except Exception:
             pass
     return ok(message='Portfolio photo deleted')
+
+# ===================== CHAT MEDIA =====================
+
+@app.route('/upload/chat-media', methods=['POST'])
+def upload_chat_media():
+    """Upload a photo or video for chat messages."""
+    if 'file' not in request.files:
+        return err('No file provided')
+
+    file    = request.files['file']
+    user_id = request.form.get('user_id', type=int)
+    role    = request.form.get('role', 'client')
+
+    if not file or file.filename == '':
+        return err('No file selected')
+    if not user_id:
+        return err('user_id is required')
+
+    # Allow images + videos
+    allowed = {'png', 'jpg', 'jpeg', 'webp', 'mp4', 'mov', 'avi', 'mkv'}
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+    if ext not in allowed:
+        return err('File type not allowed')
+
+    filename = f"chat_{role}_{user_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
+    photo_url = f"http://192.168.0.184:5000/uploads/profiles/{filename}"
+    return ok({'photo_url': photo_url}, 'Media uploaded successfully')
 
 # ===================== RUN =====================
 

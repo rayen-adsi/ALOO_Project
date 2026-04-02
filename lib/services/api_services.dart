@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = "http://192.168.0.184:5000";
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://127.0.0.1:5000',
+  );
 
   static Map<String, String> get _headers => {"Content-Type": "application/json"};
 
@@ -244,6 +247,40 @@ class ApiService {
       return {"success": body["success"] == true, "message": body["message"] ?? "Unknown error"};
     } catch (e) {
       return {"success": false, "message": "Connection failed"};
+    }
+  }
+
+  // ===================== CHAT BOT =====================
+
+  static Future<Map<String, dynamic>> getChatbotReply({
+    required String message,
+    required String userRole,
+    required String languageCode,
+  }) async {
+    try {
+      final res  = await http.post(
+        Uri.parse("$baseUrl/chatbot/reply"),
+        headers: _headers,
+        body: jsonEncode({
+          "message": message,
+          "user_role": userRole,
+          "language_code": languageCode,
+        }),
+      );
+      final body = jsonDecode(res.body);
+      return {
+        "success": body["success"] == true,
+        "message": body["message"] ?? "Unknown error",
+        "reply": body["data"]?["reply"] ?? "",
+        "suggestions": List<String>.from(body["data"]?["suggestions"] ?? const []),
+      };
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Connection failed",
+        "reply": "",
+        "suggestions": <String>[],
+      };
     }
   }
 

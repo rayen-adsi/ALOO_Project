@@ -9,6 +9,7 @@ import '../core/user_provider.dart';
 import 'provider_dashboard_tab.dart';
 import 'provider_reservations_tab.dart';
 import 'conversations_screen.dart';
+import 'chatbot_screen.dart';
 import 'settings_screen.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
@@ -62,6 +63,25 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         body: IndexedStack(index: _currentNav, children: tabs),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: FloatingActionButton(
+            heroTag: 'chatbot-fab-provider',
+            backgroundColor: const Color(0xFF0EA5A4),
+            foregroundColor: Colors.white,
+            tooltip: 'Open assistant',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChatbotScreen(userRole: _userRole),
+                ),
+              );
+            },
+            child: const Icon(Icons.smart_toy_rounded),
+          ),
+        ),
         bottomNavigationBar: _ProviderBottomNav(
           currentIndex: _currentNav,
           lang:         lang,

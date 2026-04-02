@@ -10,6 +10,7 @@ import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
 import 'provider_profile_screen.dart';
 import 'chat_screen.dart';
+import 'chatbot_screen.dart';
 import 'favorites_screen.dart';
 import 'conversations_screen.dart';
 
@@ -212,6 +213,25 @@ class _homeScreenState extends State<homeScreen>
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         body: IndexedStack(index: _currentNav, children: tabs),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: FloatingActionButton(
+            heroTag: 'chatbot-fab-client',
+            backgroundColor: const Color(0xFF0EA5A4),
+            foregroundColor: Colors.white,
+            tooltip: 'Open assistant',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChatbotScreen(userRole: _userRole),
+                ),
+              );
+            },
+            child: const Icon(Icons.smart_toy_rounded),
+          ),
+        ),
         bottomNavigationBar: _BottomNav(
           currentIndex: _currentNav,
           onTap: (i) {

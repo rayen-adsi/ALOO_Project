@@ -166,3 +166,24 @@ class TestFavorites:
     def test_missing_ids(self, client):
         res = client.post("/favorites", json={"client_id": 1})
         assert res.status_code == 400
+
+
+class TestChatbot:
+
+    def test_chatbot_reply_success(self, client):
+        res = client.post("/chatbot/reply", json={
+            "message": "How can I find a good provider?",
+            "user_role": "client",
+        })
+        data = res.get_json()
+
+        assert res.status_code == 200
+        assert data["success"] is True
+        assert isinstance(data["data"]["reply"], str)
+        assert len(data["data"]["reply"]) > 0
+        assert isinstance(data["data"]["suggestions"], list)
+        assert data["data"]["provider"] == "local"
+
+    def test_chatbot_requires_message(self, client):
+        res = client.post("/chatbot/reply", json={"message": ""})
+        assert res.status_code == 400

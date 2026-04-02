@@ -14,3 +14,11 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+## Chatbot Setup
+
+The backend chatbot endpoint is `POST /chatbot/reply`.
+
+The chatbot is local-only and uses your application database (providers, categories, ratings) to generate practical guidance.
+
+No external AI provider key is required.

@@ -830,6 +830,16 @@ const Map<String, Map<String, String>> appTranslations = {
      'fr': 'Enregistrer ou choisir une vidéo',
      'ar': 'تسجيل أو اختيار فيديو',
    },
+  'bot_enter_question': {
+    'en': 'Type a question first to ask the assistant',
+    'fr': 'Tapez d\'abord une question pour demander à l\'assistant',
+    'ar': 'اكتب سؤالك أولاً لطرح السؤال على المساعد',
+  },
+  'bot_unavailable': {
+    'en': 'Assistant is unavailable right now',
+    'fr': 'L\'assistant est indisponible pour le moment',
+    'ar': 'المساعد غير متاح حالياً',
+  },
  // ─────────────────────────────────────────────────────────────────────────────
 // NEW TRANSLATION KEYS — ADD TO app_translations.dart
 // For reservations tab + review system

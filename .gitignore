@@ -52,3 +52,6 @@ htmlcov/
 # Python
 __pycache__/
 *.pyo
+
+# Local backend databases
+/aloo_backend/instance/*.db

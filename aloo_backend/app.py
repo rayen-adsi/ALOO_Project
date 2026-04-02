@@ -149,6 +149,141 @@ def update_provider_rating(provider_id):
         provider.total_reviews = count
         db.session.commit()
 
+
+def _bot_lang(language_code):
+    code = (language_code or "en").strip().lower()
+    return code if code in ("en", "fr", "ar") else "en"
+
+
+BOT_I18N = {
+    "en": {
+        "empty": "Please type your question and I will help you right away.",
+        "hello": "Hello! I can help with finding providers, booking advice, pricing, and chat tips.",
+        "provider_search": "We currently have {provider_count} active providers. Available categories include: {cats}. Top rated providers right now: {top}. Use filters by city and category before contacting.",
+        "booking": "For better booking results, send a clear offer with service details, date, time, and exact address.",
+        "pricing": "Ask at least 2 providers for estimates and include job scope, materials, and timeline to get fair pricing. {rated_count} providers currently have reviews you can compare.",
+        "safety": "Check provider reviews, verify profile details, and keep communication inside the app for transparency.",
+        "provider_role": "To win more clients: reply fast, keep offers clear, and ask one clarifying question before confirming a booking.",
+        "fallback": "I can help with provider search, offers, booking, pricing, and safety. Tell me what you need.",
+        "no_categories": "No categories available yet",
+        "no_ratings": "No provider ratings yet",
+        "s_empty": ["Find a provider", "Booking help", "Price guidance"],
+        "s_hello": ["Find plumber", "How to book", "Safety tips"],
+        "s_provider": ["Filter by city", "Top rated only", "Open profile"],
+        "s_booking": ["Create offer", "Best message format", "What to include"],
+        "s_pricing": ["Request estimate", "Compare quotes", "Negotiate politely"],
+        "s_safety": ["Read reviews", "Verify profile", "Report issue"],
+        "s_provider_role": ["Offer template", "Improve profile", "Follow-up message"],
+        "s_fallback": ["Find provider", "Write a message", "Booking checklist"],
+    },
+    "fr": {
+        "empty": "Tapez votre question et je vous aide tout de suite.",
+        "hello": "Bonjour ! Je peux vous aider pour trouver un prestataire, reserver, comparer les prix et discuter efficacement.",
+        "provider_search": "Nous avons actuellement {provider_count} prestataires actifs. Les categories disponibles incluent : {cats}. Prestataires les mieux notes : {top}. Utilisez les filtres ville et categorie avant de contacter.",
+        "booking": "Pour mieux reserver, envoyez une offre claire avec le service, la date, l'heure et l'adresse exacte.",
+        "pricing": "Demandez au moins 2 devis et precisez le perimetre, les materiaux et le delai pour un prix juste. {rated_count} prestataires ont deja des avis comparables.",
+        "safety": "Verifiez les avis, les details du profil et gardez la communication dans l'application.",
+        "provider_role": "Pour gagner plus de clients : repondez vite, soyez clair dans vos offres et posez une question de clarification avant confirmation.",
+        "fallback": "Je peux aider pour recherche prestataires, offres, reservation, prix et securite. Dites-moi votre besoin.",
+        "no_categories": "Aucune categorie disponible pour le moment",
+        "no_ratings": "Aucune note disponible pour le moment",
+        "s_empty": ["Trouver un prestataire", "Aide reservation", "Conseils prix"],
+        "s_hello": ["Trouver plombier", "Comment reserver", "Conseils securite"],
+        "s_provider": ["Filtrer par ville", "Mieux notes", "Ouvrir profil"],
+        "s_booking": ["Creer offre", "Format message", "Infos a inclure"],
+        "s_pricing": ["Demander devis", "Comparer devis", "Negocier"],
+        "s_safety": ["Lire avis", "Verifier profil", "Signaler probleme"],
+        "s_provider_role": ["Modele d'offre", "Ameliorer profil", "Message suivi"],
+        "s_fallback": ["Trouver prestataire", "Ecrire message", "Checklist reservation"],
+    },
+    "ar": {
+        "empty": "اكتب سؤالك وسأساعدك مباشرة.",
+        "hello": "مرحبا! يمكنني مساعدتك في العثور على مزود خدمة والحجز ومقارنة الاسعار ونصائح المحادثة.",
+        "provider_search": "لدينا حاليا {provider_count} مزود خدمة نشط. الفئات المتاحة: {cats}. اعلى المزودين تقييما حاليا: {top}. استخدم فلترة المدينة والفئة قبل التواصل.",
+        "booking": "لنتيجة افضل في الحجز، ارسل عرضا واضحا يتضمن نوع الخدمة والتاريخ والوقت والعنوان الدقيق.",
+        "pricing": "اطلب عرض سعر من مزودين على الاقل وحدد نطاق العمل والمواد والمدة للحصول على سعر عادل. يوجد حاليا {rated_count} مزود لديهم تقييمات يمكنك مقارنتها.",
+        "safety": "تحقق من التقييمات ومعلومات الملف الشخصي وابق التواصل داخل التطبيق للشفافية.",
+        "provider_role": "لزيادة فرصك كمزود: رد بسرعة، واجعل العرض واضحا، واسأل سؤال توضيحي قبل التأكيد.",
+        "fallback": "يمكنني مساعدتك في البحث عن مزود، العروض، الحجز، الاسعار، ونصائح الامان. اخبرني بما تحتاج.",
+        "no_categories": "لا توجد فئات متاحة حاليا",
+        "no_ratings": "لا توجد تقييمات متاحة حاليا",
+        "s_empty": ["ابحث عن مزود", "مساعدة في الحجز", "نصائح اسعار"],
+        "s_hello": ["ابحث عن سباك", "كيف احجز", "نصائح امان"],
+        "s_provider": ["فلترة حسب المدينة", "الاعلى تقييما", "فتح الملف"],
+        "s_booking": ["انشاء عرض", "صيغة الرسالة", "ما يجب تضمينه"],
+        "s_pricing": ["طلب عرض سعر", "مقارنة العروض", "تفاوض"],
+        "s_safety": ["قراءة التقييمات", "التحقق من الملف", "ابلاغ عن مشكلة"],
+        "s_provider_role": ["قالب عرض", "تحسين الملف", "رسالة متابعة"],
+        "s_fallback": ["ابحث عن مزود", "اكتب رسالة", "قائمة قبل الحجز"],
+    },
+}
+
+
+def generate_chatbot_reply(message, user_role="client", language_code="en"):
+    lang = _bot_lang(language_code)
+    i18n = BOT_I18N[lang]
+    text = (message or "").strip().lower()
+
+    providers = Provider.query.filter_by(is_active=True).all()
+    provider_count = len(providers)
+    categories = sorted({p.category for p in providers if p.category})
+    top_providers = sorted(
+        providers,
+        key=lambda p: ((p.rating or 0.0), (p.total_reviews or 0)),
+        reverse=True,
+    )[:3]
+    top_names = [p.full_name for p in top_providers if p.full_name]
+
+    if not text:
+        return (
+            i18n["empty"],
+            i18n["s_empty"],
+        )
+
+    if any(k in text for k in ["hello", "hi", "hey", "salut", "bonjour", "مرحبا", "سلام"]):
+        return (
+            i18n["hello"],
+            i18n["s_hello"],
+        )
+
+    if any(k in text for k in ["plumber", "electrician", "mechanic", "cleaner", "teacher", "developer", "provider", "مزود", "سباك", "كهربائي", "ميكانيكي", "تنظيف", "مدرس", "مطور"]):
+        cats = ", ".join(categories[:5]) if categories else i18n["no_categories"]
+        top = ", ".join(top_names) if top_names else i18n["no_ratings"]
+        return (
+            i18n["provider_search"].format(provider_count=provider_count, cats=cats, top=top),
+            i18n["s_provider"],
+        )
+
+    if any(k in text for k in ["book", "reservation", "schedule", "offer", "appointment", "حجز", "موعد", "عرض"]):
+        return (
+            i18n["booking"],
+            i18n["s_booking"],
+        )
+
+    if any(k in text for k in ["price", "cost", "budget", "expensive", "cheap", "سعر", "تكلفة", "ميزانية", "غالي", "رخيص"]):
+        rated_count = len([p for p in providers if (p.total_reviews or 0) > 0])
+        return (
+            i18n["pricing"].format(rated_count=rated_count),
+            i18n["s_pricing"],
+        )
+
+    if any(k in text for k in ["safe", "scam", "trust", "secure", "امن", "أمن", "احتيال", "ثقة"]):
+        return (
+            i18n["safety"],
+            i18n["s_safety"],
+        )
+
+    if user_role == "provider":
+        return (
+            i18n["provider_role"],
+            i18n["s_provider_role"],
+        )
+
+    return (
+        i18n["fallback"],
+        i18n["s_fallback"],
+    )
+
 VALID_CATEGORIES = [
     "Plombier", "Electricien", "Mecanicien",
     "Femme de menage", "Professeur", "Developpeur", "Reparation domicile"
@@ -159,6 +294,27 @@ VALID_CATEGORIES = [
 @app.route("/ping")
 def ping():
     return ok(message="Backend connected")
+
+
+@app.route("/chatbot/reply", methods=["POST"])
+def chatbot_reply():
+    data = request.json or {}
+    message = (data.get("message") or "").strip()
+    user_role = (data.get("user_role") or "client").strip().lower()
+    language_code = (data.get("language_code") or "en").strip().lower()
+
+    if not message:
+        return err("message is required")
+
+    reply, suggestions = generate_chatbot_reply(
+        message,
+        user_role=user_role,
+        language_code=language_code,
+    )
+    return ok(
+        {"reply": reply, "suggestions": suggestions, "provider": "local"},
+        "Bot reply generated",
+    )
 
 # ===================== PHOTO UPLOAD =====================
 

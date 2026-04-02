@@ -74,7 +74,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   final _picker = ImagePicker();
 
   List<Map<String, dynamic>> _messages = [];
+  final List<Map<String, dynamic>> _botMessages = [];
   bool _loading = true, _sending = false;
+  bool _botThinking = false;
   int _userId = 0; String _userRole = 'client', _fullName = '';
   Timer? _pollTimer;
   int _actualClientId = 0, _actualProviderId = 0;
@@ -110,7 +112,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     try {
       final data = await ApiService.getConversation(clientId: _actualClientId, providerId: _actualProviderId);
       if (!mounted) return;
-      setState(() { _messages = data; _loading = false; }); _scrollToBottom();
+      final merged = [...data, ..._botMessages];
+      merged.sort((a, b) {
+        final da = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final db = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return da.compareTo(db);
+      });
+      setState(() { _messages = merged; _loading = false; }); _scrollToBottom();
     } catch (_) { if (!mounted) return; setState(() => _loading = false); }
   }
 
@@ -225,6 +233,69 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       final picked = await _picker.pickImage(source: source, imageQuality: 80, maxWidth: 1200);
       if (picked != null) _sendMedia(picked.path, 'image');
     } catch (_) {}
+  }
+
+  Future<void> _askBot() async {
+    final lang = context.read<LanguageProvider>();
+    final text = _msgCtrl.text.trim();
+    if (text.isEmpty || _botThinking) {
+      if (text.isEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(lang.t('bot_enter_question')),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _botThinking = true);
+    try {
+      final res = await ApiService.getChatbotReply(
+        message: text,
+        userRole: _userRole,
+        languageCode: lang.langCode,
+      );
+      if (!mounted) return;
+      if (res['success'] == true && (res['reply'] as String).isNotEmpty) {
+        _msgCtrl.clear();
+        final botMsg = <String, dynamic>{
+          'id': -DateTime.now().millisecondsSinceEpoch,
+          'sender_id': -1,
+          'sender_type': 'bot',
+          'receiver_id': _userId,
+          'receiver_type': _userRole,
+          'content': res['reply'] as String,
+          'is_read': true,
+          'created_at': DateTime.now().toIso8601String(),
+        };
+        setState(() {
+          _botMessages.add(botMsg);
+          _messages = [..._messages, botMsg];
+        });
+        _scrollToBottom();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] as String? ?? lang.t('bot_unavailable')),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(lang.t('bot_unavailable')),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+    if (mounted) setState(() => _botThinking = false);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -380,7 +451,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                   )),
 
                   // Input bar
-                  _InputBar(controller: _msgCtrl, sending: _sending, onSend: _send, lang: lang,
+                  _InputBar(controller: _msgCtrl, sending: _sending, botThinking: _botThinking, onSend: _send, onAskBot: _askBot, lang: lang,
                     isProvider: _userRole == 'provider', onCreateOffer: _userRole == 'provider' ? _showCreateOffer : null,
                     onAttach: _showMediaPicker),
                 ])),
@@ -766,10 +837,11 @@ class _DateSep extends StatelessWidget {
 
 class _InputBar extends StatelessWidget {
   final TextEditingController controller; final bool sending; final VoidCallback onSend;
+  final bool botThinking; final VoidCallback onAskBot;
   final LanguageProvider lang; final bool isProvider; final VoidCallback? onCreateOffer;
   final VoidCallback? onAttach;
   const _InputBar({required this.controller, required this.sending, required this.onSend,
-    required this.lang, this.isProvider = false, this.onCreateOffer, this.onAttach});
+    required this.botThinking, required this.onAskBot, required this.lang, this.isProvider = false, this.onCreateOffer, this.onAttach});
 
   @override Widget build(BuildContext context) => Container(color: Colors.white,
     padding: const EdgeInsets.fromLTRB(8, 10, 16, 0),
@@ -799,6 +871,55 @@ class _InputBar extends StatelessWidget {
             decoration: InputDecoration(hintText: lang.t('write_message'),
               hintStyle: const TextStyle(fontSize: 15, color: Color(0xFFADB5BD)),
               border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13))))),
+        const SizedBox(width: 6),
+        Tooltip(
+          message: 'Ask assistant',
+          child: GestureDetector(onTap: botThinking ? null : onAskBot,
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: botThinking ? const Color(0xFF94A3B8) : const Color(0xFF0EA5A4),
+                boxShadow: botThinking
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: const Color(0xFF0EA5A4).withOpacity(0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+              ),
+              child: botThinking
+                  ? const Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  : const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.smart_toy_rounded, color: Colors.white, size: 16),
+                        SizedBox(width: 4),
+                        Text(
+                          'AI',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
         const SizedBox(width: 10),
         // Send button
         GestureDetector(onTap: sending ? null : onSend,

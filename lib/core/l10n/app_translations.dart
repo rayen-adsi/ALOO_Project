@@ -955,4 +955,220 @@ const Map<String, Map<String, String>> appTranslations = {
     'fr': 'Voir vos réservations',
     'ar': 'عرض حجوزاتك',
   },
+// ── Scoring / tiers ──────────────────────────────────────────────────────────
+'tier_elite': {
+  'en': '👑 Elite Provider',
+  'fr': '👑 Prestataire Élite',
+  'ar': '👑 مزود نخبة',
+},
+'tier_top': {
+  'en': '🏆 Top Performer',
+  'fr': '🏆 Top Prestataire',
+  'ar': '🏆 أفضل مزود',
+},
+'tier_rising': {
+  'en': '⭐ Rising Star',
+  'fr': '⭐ Étoile Montante',
+  'ar': '⭐ نجم صاعد',
+},
+'tier_new': {
+  'en': 'New Provider',
+  'fr': 'Nouveau Prestataire',
+  'ar': 'مزود جديد',
+},
+'completed_jobs': {
+  'en': 'Completed Jobs',
+  'fr': 'Travaux terminés',
+  'ar': 'الأعمال المنجزة',
+},
+'jobs_to_next': {
+  'en': 'jobs to next milestone',
+  'fr': 'travaux pour le prochain palier',
+  'ar': 'عمل للمرحلة التالية',
+},
+'next_milestone': {
+  'en': 'Next milestone',
+  'fr': 'Prochain palier',
+  'ar': 'المرحلة التالية',
+},
+'score_points': {
+  'en': 'pts',
+  'fr': 'pts',
+  'ar': 'نقطة',
+},
+// ── Notification types ────────────────────────────────────────────────────────
+'notif_type_milestone': {
+  'en': 'Achievement',
+  'fr': 'Succès',
+  'ar': 'إنجاز',
+},
+'notif_mark_all_read': {
+  'en': 'Mark all as read',
+  'fr': 'Tout marquer comme lu',
+  'ar': 'تحديد الكل كمقروء',
+},
+'notif_unread_count': {
+  'en': 'unread',
+  'fr': 'non lus',
+  'ar': 'غير مقروء',
+},
+// ── Time labels ───────────────────────────────────────────────────────────────
+'just_now': {
+  'en': 'Just now',
+  'fr': 'À l\'instant',
+  'ar': 'الآن',
+},
+'minutes_ago': {
+  'en': 'min ago',
+  'fr': 'min',
+  'ar': 'د مضت',
+},
+'hours_ago': {
+  'en': 'h ago',
+  'fr': 'h',
+  'ar': 'س مضت',
+},
+'days_ago': {
+  'en': 'd ago',
+  'fr': 'j',
+  'ar': 'ي مضت',
+},
+// ── Provider stats ─────────────────────────────────────────────────────────────
+'no_notifications': {
+  'en': 'No notifications yet',
+  'fr': 'Aucune notification',
+  'ar': 'لا توجد إشعارات',
+},
+'no_notifications_sub': {
+  'en': 'Updates about bookings and messages appear here',
+  'fr': 'Les mises à jour de réservations et messages apparaissent ici',
+  'ar': 'تظهر هنا تحديثات الحجوزات والرسائل',
+},
+'notifications_title': {
+  'en': 'Notifications',
+  'fr': 'Notifications',
+  'ar': 'الإشعارات',
+},
+'mark_all_read': {
+  'en': 'Mark all read',
+  'fr': 'Tout lire',
+  'ar': 'قراءة الكل',
+},
+'uploading_media': {
+  'en': 'Uploading...',
+  'fr': 'Envoi en cours...',
+  'ar': 'جارٍ الرفع...',
+},
+'media_upload_failed': {
+  'en': 'Upload failed',
+  'fr': 'Échec de l\'envoi',
+  'ar': 'فشل الرفع',
+},
+'reminder_today': {
+  'en': 'Today',
+  'fr': 'Aujourd\'hui',
+  'ar': 'اليوم',
+},
+'reminder_tomorrow': {
+  'en': 'Tomorrow',
+  'fr': 'Demain',
+  'ar': 'غداً',
+},
+'notif_type_reminder': {
+  'en': 'Reminder',
+  'fr': 'Rappel',
+  'ar': 'تذكير',
+},
+'report_no_show': {
+  'en': 'Report No-Show',
+  'fr': 'Signaler absence',
+  'ar': 'الإبلاغ عن غياب',
+},
+'report_confirm_title': {
+  'en': 'Report No-Show?',
+  'fr': 'Signaler une absence ?',
+  'ar': 'الإبلاغ عن غياب؟',
+},
+'report_confirm_body': {
+  'en': 'This will deduct 15 points from the provider\'s score. Only report if they truly didn\'t show up.',
+  'fr': 'Cela déduira 15 points du score du prestataire. Ne signalez que s\'il ne s\'est vraiment pas présenté.',
+  'ar': 'سيُخصم 15 نقطة من رصيد المزود. أبلغ فقط إذا لم يحضر فعلاً.',
+},
+'report_submitted': {
+  'en': 'Report submitted. Provider lost 15 points.',
+  'fr': 'Signalement envoyé. Le prestataire a perdu 15 points.',
+  'ar': 'تم الإبلاغ. خسر المزود 15 نقطة.',
+},
+'already_reported': {
+  'en': 'Already reported',
+  'fr': 'Déjà signalé',
+  'ar': 'تم الإبلاغ مسبقاً',
+},
+'notif_type_no_show_report': {
+  'en': 'No-Show Report',
+  'fr': 'Absence signalée',
+  'ar': 'بلاغ غياب',
+},
+'report_reason_hint': {
+  'en': 'What happened? (optional)',
+  'fr': 'Que s\'est-il passé ? (optionnel)',
+  'ar': 'ماذا حدث؟ (اختياري)',
+},
+'notif_type_new_message': {
+  'en': 'Message',
+  'fr': 'Message',
+  'ar': 'رسالة',
+},
+'notif_type_new_review': {
+  'en': 'Review',
+  'fr': 'Avis',
+  'ar': 'تقييم',
+},
+'delete_notification': {
+  'en': 'Delete',
+  'fr': 'Supprimer',
+  'ar': 'حذف',
+},
+'delete_all_notifications': {
+  'en': 'Delete all',
+  'fr': 'Tout supprimer',
+  'ar': 'حذف الكل',
+},
+'delete_all_confirm': {
+  'en': 'Delete all notifications?',
+  'fr': 'Supprimer toutes les notifications ?',
+  'ar': 'حذف جميع الإشعارات؟',
+},
+'notif_type_profile_complete': {'en': 'Profile Complete', 'fr': 'Profil Complet', 'ar': 'الملف مكتمل'},
+'profile_bonus_title': {'en': 'Profile 100% Complete!', 'fr': 'Profil complété à 100% !', 'ar': 'الملف الشخصي مكتمل 100%!'},
+'profile_bonus_sub': {'en': 'You earned +10 bonus points', 'fr': 'Vous avez gagné +10 points bonus', 'ar': 'ربحت +10 نقاط إضافية'},
+'notif_type_offer_received': {
+  'en': 'New Offer',
+  'fr': 'Nouvelle Offre',
+  'ar': 'عرض جديد',
+},
+'notif_type_offer_accepted': {
+  'en': 'Offer Accepted',
+  'fr': 'Offre Acceptée',
+  'ar': 'تم قبول العرض',
+},
+'notif_type_offer_refused': {
+  'en': 'Offer Declined',
+  'fr': 'Offre Refusée',
+  'ar': 'تم رفض العرض',
+},
+'notif_type_job_completed': {
+  'en': 'Job Completed',
+  'fr': 'Travail Terminé',
+  'ar': 'تم إنجاز العمل',
+},
+'agenda_title':       {'en': 'Agenda',            'fr': 'Agenda',              'ar': 'الأجندة'},
+'agenda_2weeks':      {'en': '2 weeks',            'fr': '2 semaines',          'ar': 'أسبوعان'},
+'agenda_all':         {'en': 'All',                'fr': 'Tout',                'ar': 'الكل'},
+'agenda_has_reservation': {'en': 'Reservation',   'fr': 'Réservation',         'ar': 'حجز'},
+'agenda_completed':   {'en': 'Completed',          'fr': 'Terminé',             'ar': 'مكتمل'},
+'agenda_reported':    {'en': 'Reported',           'fr': 'Signalé',             'ar': 'مُبلَّغ'},
+'agenda_reservations':{'en': 'reservations',       'fr': 'réservations',        'ar': 'حجوزات'},
+'agenda_tap_day':     {'en': 'Tap a highlighted day', 'fr': 'Appuyez sur un jour', 'ar': 'اضغط على يوم'},
+'agenda_tap_day_sub': {'en': 'to view your reservations', 'fr': 'pour voir vos réservations', 'ar': 'لعرض حجوزاتك'},
 };

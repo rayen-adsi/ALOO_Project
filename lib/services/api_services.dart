@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = "http://192.168.0.184:5000";
+  static const String baseUrl = "http://10.176.236.230:5000";
 
   static Map<String, String> get _headers => {"Content-Type": "application/json"};
 
@@ -414,7 +414,16 @@ class ApiService {
       return null;
     }
   }
-
+static Future<Map<String, dynamic>?> getProviderStats(int providerId) async {
+  try {
+    final res  = await http.get(Uri.parse("$baseUrl/provider/$providerId/stats"), headers: _headers);
+    final body = jsonDecode(res.body);
+    if (body["success"] == true) return body["data"];
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
   static Future<Map<String, dynamic>> changeProviderPassword({
     required int    providerId,
     required String currentPassword,
@@ -604,4 +613,145 @@ class ApiService {
       return {'success': false, 'message': 'Upload failed', 'photo_url': ''};
     }
   }
+  // ===================== REMINDERS =====================
+
+/// Check if a reminder notification for this exact reservation
+/// was already sent today (avoids duplicates on every app open)
+static Future<bool> reminderAlreadySent({
+  required int    userId,
+  required String userType,
+  required String reminderKey,
+}) async {
+  try {
+    final notifs = await getNotifications(userId: userId, userType: userType);
+    for (final n in notifs) {
+      if (n['type'] != 'reminder') continue;
+      try {
+        final payload = jsonDecode(n['message'] as String? ?? '{}')
+            as Map<String, dynamic>;
+        if (payload['reminder_key'] == reminderKey) return true;
+      } catch (_) {}
+    }
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Create a reminder notification via the backend
+static Future<void> createReminderNotification({
+  required int    userId,
+  required String userType,
+  required String message,
+  required String reminderKey,
+  required int    clientId,
+  required int    providerId,
+  required String partnerName,
+  required String date,
+  required String time,
+  required String description,
+}) async {
+  try {
+    await http.post(
+      Uri.parse('$baseUrl/notifications/reminder'),
+      headers: _headers,
+      body: jsonEncode({
+        'user_id':     userId,
+        'user_type':   userType,
+        'message':     message,
+        'reminder_key': reminderKey,
+        'client_id':   clientId,
+        'provider_id': providerId,
+        'partner_name': partnerName,
+        'date':        date,
+        'time':        time,
+        'description': description,
+      }),
+    );
+  } catch (_) {}
+}
+// ===================== REPORTS =====================
+
+static Future<Map<String, dynamic>> reportNoShow({
+  required int    clientId,
+  required int    providerId,
+  required String reservationKey,
+  required String description,
+  required String date,
+  required String time,
+  String          reason = '',
+}) async {
+  try {
+    final res  = await http.post(
+      Uri.parse('$baseUrl/reports'),
+      headers: _headers,
+      body: jsonEncode({
+        'client_id':        clientId,
+        'provider_id':      providerId,
+        'reservation_key':  reservationKey,
+        'reason':           reason,
+        'description':      description,
+        'date':             date,
+        'time':             time,
+      }),
+    );
+    final body = jsonDecode(res.body);
+    return {
+      'success':          body['success'] == true,
+      'message':          body['message']               ?? '',
+      'points_deducted':  body['data']?['points_deducted'] ?? 15,
+      'new_score':        body['data']?['new_score']    ?? 0,
+    };
+  } catch (e) {
+    return {'success': false, 'message': 'Connection failed'};
+  }
+}
+
+static Future<bool> checkAlreadyReported({
+  required int    clientId,
+  required int    providerId,
+  required String reservationKey,
+}) async {
+  try {
+    final uri  = Uri.parse('$baseUrl/reports/check').replace(
+      queryParameters: {
+        'client_id':       clientId.toString(),
+        'provider_id':     providerId.toString(),
+        'reservation_key': reservationKey,
+      });
+    final res  = await http.get(uri, headers: _headers);
+    final body = jsonDecode(res.body);
+    return body['data']?['already_reported'] == true;
+  } catch (_) {
+    return false;
+  }
+}
+static Future<Map<String, dynamic>> deleteNotification(int notifId) async {
+  try {
+    final res  = await http.delete(
+      Uri.parse('$baseUrl/notifications/$notifId'),
+      headers: _headers);
+    final body = jsonDecode(res.body);
+    return {'success': body['success'] == true,
+            'message': body['message'] ?? ''};
+  } catch (_) {
+    return {'success': false, 'message': 'Connection failed'};
+  }
+}
+
+static Future<Map<String, dynamic>> deleteAllNotifications({
+  required int    userId,
+  required String userType,
+}) async {
+  try {
+    final uri  = Uri.parse('$baseUrl/notifications/deleteall/$userId')
+        .replace(queryParameters: {'user_type': userType});
+    final res  = await http.delete(uri, headers: _headers);
+    final body = jsonDecode(res.body);
+    return {'success': body['success'] == true,
+            'message': body['message'] ?? ''};
+  } catch (_) {
+    return {'success': false, 'message': 'Connection failed'};
+  }
+}
 }

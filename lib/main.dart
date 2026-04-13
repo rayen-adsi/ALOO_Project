@@ -2,22 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/l10n/language_provider.dart';
 import 'core/user_provider.dart';
+import 'core/notification_provider.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final languageProvider = LanguageProvider();
+  final languageProvider     = LanguageProvider();
   await languageProvider.loadSavedLanguage();
 
-  final userProvider = UserProvider();
+  final userProvider         = UserProvider();
   await userProvider.load();
+
+  final notificationProvider = NotificationProvider();
+  await notificationProvider.load();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<LanguageProvider>.value(value: languageProvider),
         ChangeNotifierProvider<UserProvider>.value(value: userProvider),
+        ChangeNotifierProvider<NotificationProvider>.value(value: notificationProvider),
       ],
       child: const AlooApp(),
     ),

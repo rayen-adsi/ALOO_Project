@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/l10n/language_provider.dart';
+import '../core/notification_provider.dart';
 import '../services/api_services.dart';
 import '../core/storage/user_session.dart';
 import '../core/user_provider.dart';
@@ -93,6 +94,9 @@ class _SignInScreenState extends State<SignInScreen>
         );
         if (!mounted) return;
         await context.read<UserProvider>().load();
+        if (context.mounted) {
+  await context.read<NotificationProvider>().load();
+}
 
         final role = result['role'] ?? 'client';
 

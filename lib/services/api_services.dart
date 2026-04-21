@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = "http://192.168.0.184:5001";
+  static const String baseUrl = "http://10.76.246.230:5001";
 
   static Map<String, String> get _headers => {"Content-Type": "application/json"};
 

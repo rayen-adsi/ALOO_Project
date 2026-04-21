@@ -22,6 +22,7 @@ import '../core/l10n/language_provider.dart';
 import '../core/storage/user_session.dart';
 import '../services/api_services.dart';
 import 'provider_profile_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // ── Category meta ────────────────────────────────────────────────────────────
 
@@ -645,6 +646,32 @@ class _MapScreenState extends State<MapScreen>
 
   // ── Provider popup card ───────────────────────────────────────────────────
 
+  Future<void> _launchDirections(double lat, double lng) async {
+    // 1. Try geo scheme (most universal for map apps)
+    final geoUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng');
+    // 2. Try Google Maps specific scheme
+    final googleUri = Uri.parse('google.navigation:q=$lat,$lng');
+    // 3. Fallback to HTTPS
+    final httpsUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+
+    try {
+      if (await canLaunchUrl(googleUri)) {
+        await launchUrl(googleUri);
+      } else if (await canLaunchUrl(geoUri)) {
+        await launchUrl(geoUri);
+      } else if (await canLaunchUrl(httpsUri)) {
+        await launchUrl(httpsUri, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Could not launch maps';
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open maps application')));
+      }
+    }
+  }
+
   Widget _buildProviderPopup(LanguageProvider lang) {
     final p    = _selectedProvider!;
     final cat  = p['category'] as String? ?? '';
@@ -654,19 +681,16 @@ class _MapScreenState extends State<MapScreen>
 
     return Positioned(
       bottom: 24, left: 16, right: 16,
-      child: GestureDetector(
-        onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) =>
-              ProviderProfileScreen(providerId: p['id'] as int))),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color:        Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(
-              color: Colors.black.withOpacity(0.14),
-              blurRadius: 20, offset: const Offset(0, 6))]),
-          child: Row(children: [
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color:        Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(
+            color: Colors.black.withOpacity(0.14),
+            blurRadius: 20, offset: const Offset(0, 6))]),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
             Container(
               width: 52, height: 52,
               decoration: BoxDecoration(
@@ -709,60 +733,97 @@ class _MapScreenState extends State<MapScreen>
                         color: Color(0xFF1A3A6B))),
                 ]),
                 if (dist != null) ...[
-                  const SizedBox(height: 3),
-                  Row(children: [
-                    Icon(Icons.near_me_rounded,
-                        color: Colors.grey.shade400, size: 12),
-                    const SizedBox(width: 4),
-                    Text('$dist km',
-                      style: TextStyle(fontSize: 11,
-                          color: Colors.grey.shade500,
-                          fontWeight: FontWeight.w500)),
-                  ]),
+                   const SizedBox(height: 3),
+                   Row(children: [
+                     Icon(Icons.near_me_rounded,
+                         color: Colors.grey.shade400, size: 12),
+                     const SizedBox(width: 4),
+                     Text('$dist km',
+                       style: TextStyle(fontSize: 11,
+                           color: Colors.grey.shade500,
+                           fontWeight: FontWeight.w500)),
+                   ]),
                 ],
               ])),
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [Color(0xFF1A3A6B), Color(0xFF2A5298)]),
-                borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.arrow_forward_ios_rounded,
-                  color: Colors.white, size: 14)),
           ]),
-        ),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: _popupBtn(
+              label: lang.t('view_profile') ?? 'View Profile',
+              icon:  Icons.person_search_rounded,
+              color: const Color(0xFF1A3A6B),
+              onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) =>
+                  ProviderProfileScreen(providerId: p['id'] as int))),
+            )),
+            const SizedBox(width: 12),
+            Expanded(child: _popupBtn(
+              label: lang.t('map_get_directions') ?? 'Get Directions',
+              icon:  Icons.directions_rounded,
+              color: const Color(0xFF10B981),
+              onTap: () => _launchDirections(
+                (p['lat'] as num).toDouble(),
+                (p['lng'] as num).toDouble()),
+            )),
+          ]),
+        ]),
       ),
     );
   }
 
-  // ── Change location button ────────────────────────────────────────────────
-
-  Widget _buildChangeLocationBtn(LanguageProvider lang) => Positioned(
-    bottom: _selectedProvider != null ? 140 : 24,
-    left: 16,
-    child: GestureDetector(
-      onTap: () {
-        setState(() { _setupMode = true; _selectedProvider = null; });
-        _getGps();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(
-            color: Colors.black.withOpacity(0.14),
-            blurRadius: 12, offset: const Offset(0, 4))]),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.edit_location_alt_rounded,
-              color: Color(0xFF1A3A6B), size: 18),
-          const SizedBox(width: 6),
-          Text(lang.t('map_change_location'),
-            style: const TextStyle(fontSize: 12,
-                fontWeight: FontWeight.w700, color: Color(0xFF1A3A6B))),
-        ])),
+  Widget _popupBtn({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap
+  }) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color:        color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border:       Border.all(color: color.withOpacity(0.2))),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(width: 8),
+        Text(label, style: TextStyle(
+            fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+      ]),
     ),
   );
+
+  // ── Change location button ────────────────────────────────────────────────
+
+  Widget _buildChangeLocationBtn(LanguageProvider lang) {
+    if (_selectedProvider != null) return const SizedBox.shrink();
+    return Positioned(
+      bottom: 24,
+      left: 16,
+      child: GestureDetector(
+        onTap: () {
+          setState(() { _setupMode = true; _selectedProvider = null; });
+          _getGps();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [BoxShadow(
+              color: Colors.black.withOpacity(0.14),
+              blurRadius: 12, offset: const Offset(0, 4))]),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.edit_location_alt_rounded,
+                color: Color(0xFF1A3A6B), size: 18),
+            const SizedBox(width: 6),
+            Text(lang.t('map_change_location'),
+              style: const TextStyle(fontSize: 12,
+                  fontWeight: FontWeight.w700, color: Color(0xFF1A3A6B))),
+          ])),
+      ),
+    );
+  }
 
   // ── Fullscreen button ─────────────────────────────────────────────────────
 

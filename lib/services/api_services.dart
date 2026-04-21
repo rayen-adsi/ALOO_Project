@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = "http://10.76.246.230:5001";
+  static const String baseUrl = "http://192.168.0.184:5001";
 
   static Map<String, String> get _headers => {"Content-Type": "application/json"};
 
@@ -248,20 +248,42 @@ class ApiService {
     required String readerType,
   }) async {
     try {
-      final res  = await http.put(Uri.parse("$baseUrl/messages/read"),
+      final res = await http.post(
+          Uri.parse("$baseUrl/messages/read"),
           headers: _headers,
           body: jsonEncode({
             "client_id":   clientId,
             "provider_id": providerId,
             "reader_type": readerType,
           }));
-      final body = jsonDecode(res.body);
-      return {"success": body["success"] == true, "message": body["message"] ?? "Unknown error"};
-    } catch (e) {
-      return {"success": false, "message": "Connection failed"};
+      return jsonDecode(res.body);
+    } catch (_) {
+      return {"success": false};
     }
   }
 
+  // ===================== CHATBOT =====================
+
+  static Future<Map<String, dynamic>> getChatbotReply({
+    required String message,
+    required String userRole,
+    required String languageCode,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/chatbot/reply'),
+        headers: _headers,
+        body: jsonEncode({
+          'message': message,
+          'user_role': userRole,
+          'lang': languageCode,
+        }),
+      );
+      return jsonDecode(res.body);
+    } catch (_) {
+      return {'success': false, 'reply': ''};
+    }
+  }
   // ===================== FAVORITES =====================
 
   static Future<Map<String, dynamic>> addFavorite({

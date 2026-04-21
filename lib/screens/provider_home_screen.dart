@@ -15,6 +15,7 @@ import 'provider_dashboard_tab.dart';
 import 'provider_reservations_tab.dart';
 import 'provider_client_map_screen.dart';
 import 'conversations_screen.dart';
+import 'chatbot_screen.dart';
 import 'settings_screen.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
@@ -87,6 +88,24 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             setState(() => _currentNav = i);
             if (i == 3) _convKey.currentState?.reload();
           },
+        ),
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: FloatingActionButton(
+            heroTag: 'chatbot-fab-provider',
+            backgroundColor: const Color(0xFF1A3A6B),
+            foregroundColor: Colors.white,
+            tooltip: 'Open assistant',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChatbotScreen(userRole: _userRole),
+                ),
+              );
+            },
+            child: const Icon(Icons.smart_toy_rounded),
+          ),
         ),
       ),
     );

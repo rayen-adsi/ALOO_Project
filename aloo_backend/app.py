@@ -1643,6 +1643,53 @@ def upload_chat_media():
 
 # ===================== RUN =====================
 
+# ===================== CHATBOT =====================
+
+def generate_chatbot_reply(message, user_role, lang='fr'):
+    msg = message.lower()
+    
+    replies = {
+        'fr': {
+            'greeting': "Bonjour ! Je suis votre assistant ALOO. Comment puis-je vous aider ?",
+            'booking': "Pour réserver, trouvez un prestataire sur la carte ou l'accueil, puis envoyez-lui um message.",
+            'price': "Les prix sont fixés directement entre vous et le prestataire via les offres.",
+            'default': "Je ne suis pas sûr de comprendre. Pourriez-vous reformuler ? Vous pouvez me poser des questions sur les réservations, les prestataires ou votre profil."
+        },
+        'en': {
+            'greeting': "Hello! I am your ALOO assistant. How can I help you?",
+            'booking': "To book, find a provider on the map or home screen, then send them a message.",
+            'price': "Prices are set directly between you and the provider via offers.",
+            'default': "I'm not sure I understand. Could you rephrase? You can ask me about bookings, providers, or your profile."
+        },
+        'ar': {
+            'greeting': "مرحبًا! أنا مساعد ALOO الخاص بك. كيف يمكنني مساعدتك؟",
+            'booking': "للحجز ، ابحث عن مزود خدمة على الخريطة أو الشاشة الرئيسية ، ثم أرسل له رسالة.",
+            'price': "يتم تحديد الأسعار مباشرة بينك وبين مزود الخدمة من خلال العروض.",
+            'default': "لست متأكدًا من أنني أفهم. هل يمكنك إعادة صياغة سؤالك؟ يمكنك سؤالي عن الحجوزات أو مزودي الخدمة أو ملفك الشخصي."
+        }
+    }
+    
+    l = lang if lang in replies else 'fr'
+    
+    if any(x in msg for x in ['bonjour', 'hello', 'salut', 'مرحبا']):
+        return replies[l]['greeting']
+    if any(x in msg for x in ['réserver', 'reservation', 'booking', 'حجز']):
+        return replies[l]['booking']
+    if any(x in msg for x in ['prix', 'argent', 'pay', 'cost', 'سعر', 'دفع']):
+        return replies[l]['price']
+        
+    return replies[l]['default']
+
+@app.route('/chatbot/reply', methods=['POST'])
+def chatbot_reply():
+    data = request.json
+    message = data.get('message', '')
+    user_role = data.get('user_role', 'client')
+    lang = data.get('lang', 'fr')
+    
+    reply = generate_chatbot_reply(message, user_role, lang)
+    return ok({'reply': reply})
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()

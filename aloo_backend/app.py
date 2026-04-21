@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import re
 import os
 import uuid
@@ -64,6 +64,10 @@ class Client(db.Model):
     address       = db.Column(db.String(255), nullable=False)
     profile_photo = db.Column(db.Text, nullable=True)
     avatar_index  = db.Column(db.Integer, default=0)
+    city          = db.Column(db.String(100), nullable=True)
+    lat           = db.Column(db.Float, nullable=True)
+    lng           = db.Column(db.Float, nullable=True)
+    location_set  = db.Column(db.Boolean, default=False)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -89,6 +93,9 @@ class Provider(db.Model):
     score               = db.Column(db.Integer, default=0)
     completed_jobs      = db.Column(db.Integer, default=0)
     profile_bonus_given = db.Column(db.Boolean, default=False)
+    lat                 = db.Column(db.Float, nullable=True)
+    lng                 = db.Column(db.Float, nullable=True)
+    location_set        = db.Column(db.Boolean, default=False)
     created_at          = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -169,6 +176,20 @@ def is_valid_password(password):
 
 def is_valid_phone(phone):
     return re.match(r'^\+?[0-9]{8,15}$', phone)
+
+
+def _get_full_url(filename):
+    """Dynamically build the full URL based on the current request host."""
+    if not filename:
+        return None
+    if filename.startswith("http"):
+        # If it's already an absolute URL (legacy), return as is
+        # The migration script will eventually clean these up
+        return filename
+    # Remove any potential leading slash
+    filename = filename.lstrip("/")
+    # Build URL: base_url + uploads/profiles/ + filename
+    return f"{request.host_url}uploads/profiles/{filename}"
 
 
 def ok(data=None, message="Success"):
@@ -264,8 +285,8 @@ def recalc_provider_score(provider_id):
     db.session.commit()
 
 
-def _provider_summary(p):
-    return {
+def _provider_summary(p, distance_km=None):
+    d = {
         "id":                  p.id,
         "full_name":           p.full_name,
         "category":            p.category,
@@ -274,12 +295,18 @@ def _provider_summary(p):
         "rating":              p.rating,
         "total_reviews":       p.total_reviews,
         "is_verified":         p.is_verified,
-        "profile_photo":       p.profile_photo,
+        "profile_photo":       _get_full_url(p.profile_photo),
         "avatar_index":        p.avatar_index or 0,
         "score":               p.score or 0,
         "completed_jobs":      p.completed_jobs or 0,
         "profile_bonus_given": p.profile_bonus_given or False,
+        "lat":                 p.lat,
+        "lng":                 p.lng,
+        "location_set":        p.location_set or False,
     }
+    if distance_km is not None:
+        d["distance_km"] = round(distance_km, 1)
+    return d
 
 
 def _build_notif_payload(sender_type, sender_id, receiver_type, receiver_id,
@@ -296,7 +323,7 @@ def _build_notif_payload(sender_type, sender_id, receiver_type, receiver_id,
 
     if sender_obj:
         sender_name   = sender_obj.full_name
-        sender_photo  = sender_obj.profile_photo
+        sender_photo  = _get_full_url(sender_obj.profile_photo)
         sender_avatar = sender_obj.avatar_index or 0
 
     payload = {
@@ -318,6 +345,19 @@ VALID_CATEGORIES = [
     "Plombier", "Electricien", "Mecanicien",
     "Femme de menage", "Professeur", "Developpeur", "Reparation domicile"
 ]
+
+# ── Haversine distance (km) between two GPS points ──────────────────────────
+import math as _math
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371.0
+    dlat = _math.radians(lat2 - lat1)
+    dlon = _math.radians(lon2 - lon1)
+    a = (_math.sin(dlat / 2) ** 2 +
+         _math.cos(_math.radians(lat1)) *
+         _math.cos(_math.radians(lat2)) *
+         _math.sin(dlon / 2) ** 2)
+    return R * 2 * _math.asin(_math.sqrt(a))
 
 # ===================== PING =====================
 
@@ -355,21 +395,22 @@ def upload_profile_photo():
                 pass
 
     file.save(filepath)
-    photo_url = f"http://192.168.0.184:5000/uploads/profiles/{filename}"
+    # Store ONLY the filename in the DB, not the full URL!
+    db_value = filename 
 
     if role == 'client':
         c = Client.query.get(user_id)
         if c:
-            c.profile_photo = photo_url
+            c.profile_photo = db_value
             db.session.commit()
     else:
         p = Provider.query.get(user_id)
         if p:
-            p.profile_photo = photo_url
+            p.profile_photo = db_value
             db.session.commit()
         recalc_provider_score(user_id)
 
-    return ok({'photo_url': photo_url}, 'Photo uploaded successfully')
+    return ok({'photo_url': _get_full_url(db_value)}, 'Photo uploaded successfully')
 
 
 @app.route('/uploads/profiles/<filename>')
@@ -590,6 +631,11 @@ def signup_provider_step2():
 
 # ===================== PROVIDERS =====================
 
+@app.route("/ping_test", methods=["GET"])
+def ping_test():
+    import sys
+    return ok(message=f"Executable: {sys.executable}, File: {__file__}")
+
 @app.route("/providers", methods=["GET"])
 def get_providers():
     providers = (Provider.query
@@ -601,24 +647,105 @@ def get_providers():
 
 @app.route("/providers/search", methods=["GET"])
 def search_providers():
-    q        = request.args.get("q", "").strip()
+    q        = request.args.get("q",        "").strip()
     category = request.args.get("category", "").strip()
-    city     = request.args.get("city", "").strip()
+    city     = request.args.get("city",     "").strip()
+    lat      = request.args.get("lat",      type=float)
+    lng      = request.args.get("lng",      type=float)
+    radius   = request.args.get("radius",   type=float, default=5.0)
+    limit    = request.args.get("limit",    type=int,   default=0)
 
     query = Provider.query.filter_by(is_active=True)
     if q:
         query = query.filter(Provider.full_name.ilike(f"%{q}%"))
     if category:
         query = query.filter_by(category=category)
-    if city:
+    if city and not (lat and lng):
+        # City-only fallback (no GPS)
         query = query.filter_by(city=city)
 
-    return ok([_provider_summary(p)
-               for p in query.order_by(Provider.score.desc()).all()])
+    providers = query.order_by(Provider.score.desc()).all()
+
+    # GPS radius filter
+    if lat is not None and lng is not None:
+        with_dist = []
+        for p in providers:
+            if p.lat is not None and p.lng is not None:
+                d = haversine(lat, lng, p.lat, p.lng)
+                if d <= radius:
+                    with_dist.append((p, d))
+
+        # If nothing in radius, expand to 2× and retry
+        if not with_dist:
+            for p in providers:
+                if p.lat is not None and p.lng is not None:
+                    d = haversine(lat, lng, p.lat, p.lng)
+                    if d <= radius * 2:
+                        with_dist.append((p, d))
+
+        with_dist.sort(key=lambda x: x[0].score, reverse=True)
+        result = [_provider_summary(p, d) for p, d in with_dist]
+    else:
+        result = [_provider_summary(p) for p in providers]
+
+    if limit > 0:
+        result = result[:limit]
+    return ok(result)
+
+
+@app.route("/location/update", methods=["POST"])
+def update_location():
+    """Save confirmed pin location for client or provider."""
+    data      = request.json
+    user_id   = data.get("user_id")
+    user_type = data.get("user_type", "client")
+    lat       = data.get("lat")
+    lng       = data.get("lng")
+    city      = data.get("city", "")
+
+    if not user_id or lat is None or lng is None:
+        return err("user_id, lat and lng are required")
+
+    if user_type == "client":
+        u = Client.query.get(user_id)
+    else:
+        u = Provider.query.get(user_id)
+
+    if not u:
+        return err("User not found", 404)
+
+    u.lat          = lat
+    u.lng          = lng
+    u.location_set = True
+    if city:
+        if user_type == "client":
+            u.city = city
+        else:
+            u.city = city
+    db.session.commit()
+    return ok({"lat": lat, "lng": lng, "city": city},
+              "Location saved successfully")
+
+
+@app.route("/location/<string:user_type>/<int:user_id>", methods=["GET"])
+def get_location(user_type, user_id):
+    """Get saved location for a user."""
+    if user_type == "client":
+        u = Client.query.get(user_id)
+    else:
+        u = Provider.query.get(user_id)
+    if not u:
+        return err("User not found", 404)
+    return ok({
+        "lat":          u.lat,
+        "lng":          u.lng,
+        "city":         getattr(u, 'city', None),
+        "location_set": u.location_set or False,
+    })
 
 
 @app.route("/providers/<int:provider_id>", methods=["GET"])
-def get_provider(provider_id):
+def get_provider_profile(provider_id):
     p = Provider.query.get(provider_id)
     if not p:
         return err("Provider not found", 404)
@@ -632,7 +759,7 @@ def get_provider(provider_id):
         client = Client.query.get(r.client_id)
         reviews_data.append({
             "client_name":   client.full_name if client else "Unknown",
-            "client_photo":  client.profile_photo if client else None,
+            "client_photo":  _get_full_url(client.profile_photo) if client else None,
             "client_avatar": client.avatar_index  if client else 0,
             "rating":        r.rating,
             "comment":       r.comment,
@@ -646,9 +773,58 @@ def get_provider(provider_id):
         "address":   p.address,
         "is_active": p.is_active,
         "skills":    p.skills,
-        "portfolio": p.portfolio,
+        "portfolio": _json.dumps([_get_full_url(img) for img in _json.loads(p.portfolio or "[]")]),
         "reviews":   reviews_data,
     })
+
+
+@app.route("/providers/<int:provider_id>/reservations/map", methods=["GET"])
+def get_provider_reservations_map(provider_id):
+    """Fetch all clients with accepted reservations for this provider."""
+    # 1. Gather all offer messages involving this provider
+    # Note: We use string matching for 'OFFER_JSON:' directly in query for speed
+    offers = (Message.query
+              .filter(Message.receiver_id == provider_id)
+              .filter(Message.receiver_type == "provider")
+              .filter(Message.content.like("OFFER_JSON:%"))
+              .order_by(Message.created_at.desc())
+              .all())
+
+    # 2. Extract the LATEST offer for each client
+    client_offers = {}
+    for msg in offers:
+        cid = msg.sender_id
+        if cid not in client_offers:
+            try:
+                raw_json = msg.content[len("OFFER_JSON:"):]
+                offer_data = _json.loads(raw_json)
+                if offer_data.get("status") == "accepted":
+                    client_offers[cid] = offer_data
+            except:
+                continue
+
+    # 3. Build the pin list with client details
+    pins = []
+    for cid, offer in client_offers.items():
+        client = Client.query.get(cid)
+        if not client or not client.lat or not client.lng:
+            continue
+        
+        pins.append({
+            "client_id":    client.id,
+            "client_name":  client.full_name,
+            "client_photo": _get_full_url(client.profile_photo),
+            "client_avatar":client.avatar_index or 0,
+            "lat":          client.lat,
+            "lng":          client.lng,
+            "city":         getattr(client, 'city', ''),
+            "description":  offer.get("description", ""),
+            "date":         offer.get("date", ""),
+            "time":         offer.get("time", ""),
+            "status":       "accepted"
+        })
+
+    return ok(pins)
 
 
 @app.route("/providers/<int:provider_id>", methods=["PUT"])
@@ -659,7 +835,8 @@ def update_provider(provider_id):
 
     data = request.json
     for field in ("bio", "city", "address", "profile_photo",
-                  "is_active", "skills", "portfolio", "avatar_index"):
+                  "is_active", "skills", "portfolio", "avatar_index",
+                  "lat", "lng", "location_set"):
         if field in data:
             setattr(p, field, data[field])
     db.session.commit()
@@ -846,7 +1023,7 @@ def get_conversations(user_id):
             result.append({
                 "provider_id":       pid,
                 "provider_name":     provider.full_name,
-                "provider_photo":    provider.profile_photo,
+                "provider_photo":    _get_full_url(provider.profile_photo),
                 "provider_avatar":   provider.avatar_index or 0,
                 "category":          provider.category,
                 "city":              provider.city,
@@ -888,7 +1065,7 @@ def get_conversations(user_id):
             result.append({
                 "client_id":         cid,
                 "client_name":       client.full_name,
-                "client_photo":      client.profile_photo,
+                "client_photo":      _get_full_url(client.profile_photo),
                 "client_avatar":     client.avatar_index or 0,
                 "last_message":      last_msg.content if last_msg else "",
                 "last_message_time": (last_msg.created_at.isoformat()
@@ -1057,7 +1234,7 @@ def get_reviews(provider_id):
         result.append({
             "id":            r.id,
             "client_name":   client.full_name if client else "Unknown",
-            "client_photo":  client.profile_photo if client else None,
+            "client_photo":  _get_full_url(client.profile_photo) if client else None,
             "client_avatar": client.avatar_index  if client else 0,
             "rating":        r.rating,
             "comment":       r.comment,
@@ -1133,7 +1310,7 @@ def report_no_show():
         "sender_type":   "client",
         "receiver_id":   provider_id,
         "receiver_type": "provider",
-        "sender_photo":  client.profile_photo if client else None,
+        "sender_photo":  _get_full_url(client.profile_photo) if client else None,
         "sender_avatar": client.avatar_index  if client else 0,
         "points_lost":   NO_SHOW_PENALTY,
     })
@@ -1176,8 +1353,12 @@ def get_client(client_id):
         "email":         c.email,
         "phone":         c.phone,
         "address":       c.address,
-        "profile_photo": c.profile_photo,
+        "profile_photo": _get_full_url(c.profile_photo),
         "avatar_index":  c.avatar_index or 0,
+        "city":          c.city,
+        "lat":           c.lat,
+        "lng":           c.lng,
+        "location_set":  c.location_set or False,
         "created_at":    c.created_at.isoformat(),
     })
 
@@ -1190,7 +1371,8 @@ def update_client(client_id):
 
     data = request.json
     for field in ("full_name", "phone", "address",
-                  "profile_photo", "avatar_index"):
+                  "profile_photo", "avatar_index",
+                  "city", "lat", "lng", "location_set"):
         if field in data:
             setattr(c, field, data[field])
     db.session.commit()
@@ -1413,10 +1595,9 @@ def upload_portfolio_photo():
     filename = f"portfolio_{provider_id}_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
-
-    photo_url = f"http://192.168.0.184:5000/uploads/profiles/{filename}"
+    db_value = filename
     recalc_provider_score(provider_id)
-    return ok({'photo_url': photo_url}, 'Portfolio photo uploaded')
+    return ok({'photo_url': _get_full_url(db_value)}, 'Portfolio photo uploaded')
 
 
 @app.route('/upload/portfolio-photo', methods=['DELETE'])
@@ -1457,13 +1638,12 @@ def upload_chat_media():
     filename = f"chat_{role}_{user_id}_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
-
-    photo_url = f"http://192.168.0.184:5000/uploads/profiles/{filename}"
-    return ok({'photo_url': photo_url}, 'Media uploaded successfully')
+    db_value = filename
+    return ok({'photo_url': _get_full_url(db_value)}, 'Media uploaded successfully')
 
 # ===================== RUN =====================
 
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5001)

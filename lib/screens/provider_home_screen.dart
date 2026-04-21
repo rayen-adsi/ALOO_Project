@@ -1,13 +1,19 @@
 // lib/screens/provider_home_screen.dart
-// Main shell for providers — different bottom nav than clients.
+//
+// Provider's main shell — 5-tab bottom nav:
+//   0. Dashboard     (ProviderDashboardTab)
+//   1. Reservations  (ProviderReservationsTab)
+//   2. Map           (ProviderClientMapScreen) ← NEW — clients with accepted reservations
+//   3. Conversations (ConversationsScreen)
+//   4. Settings      (SettingsScreen)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/l10n/language_provider.dart';
 import '../core/storage/user_session.dart';
-import '../core/user_provider.dart';
 import 'provider_dashboard_tab.dart';
 import 'provider_reservations_tab.dart';
+import 'provider_client_map_screen.dart';
 import 'conversations_screen.dart';
 import 'settings_screen.dart';
 
@@ -19,13 +25,12 @@ class ProviderHomeScreen extends StatefulWidget {
 }
 
 class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
-  int _currentNav = 0;
 
-  int    _userId   = 0;
-  String _userRole = 'provider';
+  int    _currentNav = 0;
+  int    _userId     = 0;
+  String _userRole   = 'provider';
 
   final _convKey = GlobalKey<ConversationsScreenState>();
-  final _resKey  = GlobalKey<ReservationsTabState>();
 
   @override
   void initState() {
@@ -46,14 +51,28 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
 
-    final List<Widget> tabs = [
+    // Build tabs lazily — userId may be 0 briefly while session loads,
+    // widgets handle that gracefully.
+    final tabs = <Widget>[
+      // 0 — Dashboard
       ProviderDashboardTab(userId: _userId),
-      ReservationsTab(key: _resKey, userId: _userId, userRole: _userRole),
+
+      // 1 — Reservations
+      ReservationsTab(userId: _userId, userRole: _userRole),
+
+      // 2 — Client map (accepted reservations only)
+      SizedBox.expand(
+        child: ProviderClientMapScreen(providerId: _userId),
+      ),
+
+      // 3 — Conversations
       ConversationsScreen(
         key:      _convKey,
         userId:   _userId,
         userRole: _userRole,
       ),
+
+      // 4 — Settings
       const SettingsScreen(),
     ];
 
@@ -62,13 +81,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         body: IndexedStack(index: _currentNav, children: tabs),
-        bottomNavigationBar: _ProviderBottomNav(
+        bottomNavigationBar: _BottomNav(
           currentIndex: _currentNav,
-          lang:         lang,
           onTap: (i) {
             setState(() => _currentNav = i);
-            if (i == 1) _resKey.currentState?.reload();
-            if (i == 2) _convKey.currentState?.reload();
+            if (i == 3) _convKey.currentState?.reload();
           },
         ),
       ),
@@ -77,104 +94,64 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PROVIDER BOTTOM NAV — 4 tabs: Dashboard, Reservations, Messages, Settings
+// Bottom Navigation — 5 items
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ProviderBottomNav extends StatelessWidget {
-  final int              currentIndex;
-  final LanguageProvider lang;
-  final ValueChanged<int> onTap;
-
-  const _ProviderBottomNav({
-    required this.currentIndex,
-    required this.lang,
-    required this.onTap,
-  });
+class _BottomNav extends StatelessWidget {
+  final int                currentIndex;
+  final ValueChanged<int>  onTap;
+  const _BottomNav({required this.currentIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final items = [
-      _NavItem(
-        icon:       Icons.dashboard_outlined,
-        activeIcon: Icons.dashboard_rounded,
-        label:      lang.t('dashboard'),
-      ),
-      _NavItem(
-        icon:       Icons.calendar_today_outlined,
-        activeIcon: Icons.calendar_today_rounded,
-        label:      lang.t('reservations'),
-      ),
-      _NavItem(
-        icon:       Icons.chat_bubble_outline_rounded,
-        activeIcon: Icons.chat_bubble_rounded,
-        label:      lang.t('messaging'),
-      ),
-      _NavItem(
-        icon:       Icons.settings_outlined,
-        activeIcon: Icons.settings_rounded,
-        label:      lang.t('settings'),
-      ),
+    const items = [
+      // 0 — Dashboard
+      {'icon': Icons.dashboard_outlined,          'active': Icons.dashboard_rounded},
+      // 1 — Reservations
+      {'icon': Icons.calendar_month_outlined,     'active': Icons.calendar_month_rounded},
+      // 2 — Map (clients)
+      {'icon': Icons.location_on_outlined,        'active': Icons.location_on_rounded},
+      // 3 — Conversations
+      {'icon': Icons.chat_bubble_outline_rounded, 'active': Icons.chat_bubble_rounded},
+      // 4 — Settings
+      {'icon': Icons.settings_outlined,           'active': Icons.settings_rounded},
     ];
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color:      Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset:     const Offset(0, -4),
-          ),
-        ],
-      ),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withOpacity(0.08),
+          blurRadius: 20, offset: const Offset(0, -4))]),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 68,
+          height: 60,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(items.length, (i) {
               final isActive = currentIndex == i;
-              final item     = items[i];
               return GestureDetector(
-                onTap:    () => onTap(i),
+                onTap: () => onTap(i),
                 behavior: HitTestBehavior.opaque,
                 child: SizedBox(
-                  width: 68,
+                  width: 52,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Active indicator line
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        width:  isActive ? 32 : 0,
-                        height: isActive ? 3  : 0,
+                        width:  isActive ? 40 : 0,
+                        height: isActive ? 4  : 0,
                         margin: const EdgeInsets.only(bottom: 6),
                         decoration: BoxDecoration(
-                          color:        const Color(0xFF2A5298),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
+                          color:        Colors.black,
+                          borderRadius: BorderRadius.circular(4))),
                       Icon(
-                        isActive ? item.activeIcon : item.icon,
-                        color: isActive
-                            ? const Color(0xFF2A5298)
-                            : const Color(0xFF94A3B8),
-                        size: 23,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontSize:   10,
-                          fontWeight: isActive
-                              ? FontWeight.w800
-                              : FontWeight.w500,
-                          color: isActive
-                              ? const Color(0xFF2A5298)
-                              : const Color(0xFF94A3B8),
-                        ),
-                      ),
+                        isActive
+                            ? items[i]['active'] as IconData
+                            : items[i]['icon']   as IconData,
+                        color: Colors.black, size: 24),
                     ],
                   ),
                 ),
@@ -185,15 +162,4 @@ class _ProviderBottomNav extends StatelessWidget {
       ),
     );
   }
-}
-
-class _NavItem {
-  final IconData icon;
-  final IconData activeIcon;
-  final String   label;
-  const _NavItem({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-  });
 }

@@ -1171,4 +1171,13 @@ const Map<String, Map<String, String>> appTranslations = {
 'agenda_reservations':{'en': 'reservations',       'fr': 'réservations',        'ar': 'حجوزات'},
 'agenda_tap_day':     {'en': 'Tap a highlighted day', 'fr': 'Appuyez sur un jour', 'ar': 'اضغط على يوم'},
 'agenda_tap_day_sub': {'en': 'to view your reservations', 'fr': 'pour voir vos réservations', 'ar': 'لعرض حجوزاتك'},
+'map_set_location':      {'en': 'Set your location',      'fr': 'Définir votre position',      'ar': 'حدد موقعك'},
+'map_drag_pin':          {'en': 'Tap or drag the pin',    'fr': 'Appuyez ou faites glisser',    'ar': 'اضغط أو اسحب الدبوس'},
+'map_confirm_location':  {'en': 'Confirm this location',  'fr': 'Confirmer ce lieu',            'ar': 'تأكيد الموقع'},
+'map_change_location':   {'en': 'Change location',        'fr': 'Changer de lieu',              'ar': 'تغيير الموقع'},
+'map_locating':          {'en': 'Getting your location…', 'fr': 'Localisation en cours…',       'ar': 'جارٍ تحديد موقعك...'},
+'map_your_area':         {'en': 'Your area',              'fr': 'Votre zone',                   'ar': 'منطقتك'},
+'map_providers_nearby':  {'en': 'providers nearby',       'fr': 'prestataires à proximité',     'ar': 'مزودين قريبين'},
+'map_pin_location':      {'en': 'Pin location',           'fr': 'Position épinglée',            'ar': 'موقع الدبوس'},
+
 };

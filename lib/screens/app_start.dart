@@ -11,6 +11,7 @@ import 'package:aloo_app/screens/sign_in_screen.dart';
 import 'package:aloo_app/screens/home_screen.dart';
 import 'package:aloo_app/screens/provider_home_screen.dart';
 import 'package:aloo_app/screens/provider_setup_screen.dart';
+import 'package:aloo_app/screens/map_screen.dart';
 import 'package:aloo_app/services/api_services.dart';
 import 'package:aloo_app/services/reminder_service.dart';
 
@@ -83,6 +84,17 @@ class _AppStartState extends State<AppStart> {
               profile!['portfolio'].toString().isNotEmpty &&
               profile['portfolio'] != '[]';
 
+          // ✅ Always sync provider location from DB to local storage on login
+          final locationSet = profile?['location_set'] == true;
+          if (locationSet && profile != null) {
+            final lat  = (profile['lat']  as num?)?.toDouble();
+            final lng  = (profile['lng']  as num?)?.toDouble();
+            final city = profile['city']  as String? ?? '';
+            if (lat != null && lng != null) {
+              await UserSession.saveLocation(lat: lat, lng: lng, city: city);
+            }
+          }
+
           if (!mounted) return;
 
           if (!hasPhoto || !hasBio || !hasSkills || !hasPortfolio) {
@@ -97,7 +109,12 @@ class _AppStartState extends State<AppStart> {
             );
           }
         } catch (_) {
-          // API error — go to provider home anyway
+          // API error — fall back to local storage for location check
+          bool locationSet = false;
+          try {
+            final local = await UserSession.load();
+            locationSet = local['location_set'] == true;
+          } catch (_) {}
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
@@ -105,12 +122,38 @@ class _AppStartState extends State<AppStart> {
           );
         }
       } else {
-        // Client
+        // Client — fetch profile from DB and sync location to local storage
         if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const homeScreen()),
-        );
+        bool locationSet = false;
+        try {
+          final profile = await ApiService.getClient(userId);
+          if (profile != null) {
+            locationSet = profile['location_set'] == true;
+            // ✅ Always sync location from DB to local storage on login
+            if (locationSet) {
+              final lat  = (profile['lat']  as num?)?.toDouble();
+              final lng  = (profile['lng']  as num?)?.toDouble();
+              final city = profile['city']  as String? ?? '';
+              if (lat != null && lng != null) {
+                await UserSession.saveLocation(lat: lat, lng: lng, city: city);
+              }
+            }
+          } else {
+            // API failed — fall back to local storage
+            final local = await UserSession.load();
+            locationSet = local['location_set'] == true;
+          }
+        } catch (_) {
+          // Network error — fall back to local storage
+          try {
+            final local = await UserSession.load();
+            locationSet = local['location_set'] == true;
+          } catch (_) {}
+        }
+
+        if (!mounted) return;
+        Navigator.pushReplacement(context,
+          MaterialPageRoute(builder: (_) => const homeScreen()));
       }
       return;
     }
@@ -129,6 +172,7 @@ class _AppStartState extends State<AppStart> {
       backgroundColor: Color(0xFFF5F7FA),
       body: Center(
         child: CircularProgressIndicator(
+   
           color:       Color(0xFF2A5298),
           strokeWidth: 2.5,
         ),

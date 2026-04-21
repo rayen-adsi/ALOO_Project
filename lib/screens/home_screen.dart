@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/l10n/language_provider.dart';
-import '../core/notification_provider.dart';
 import '../core/storage/user_session.dart';
 import '../services/api_services.dart';
 import '../core/user_provider.dart';
@@ -14,7 +13,7 @@ import 'chat_screen.dart';
 import 'favorites_screen.dart';
 import 'conversations_screen.dart';
 import 'notifications_screen.dart';
-import 'widgets/app_header.dart';
+import 'map_screen.dart';
 
 class homeScreen extends StatefulWidget {
   final String fullName;
@@ -204,7 +203,7 @@ class _homeScreenState extends State<homeScreen>
     final List<Widget> tabs = [
       _buildHomeTab(lang),
       FavoritesScreen(key: _favKey, clientId: _userId),
-      const Center(child: Icon(Icons.location_on_outlined, size: 60, color: Colors.grey)),
+      SizedBox.expand(child: MapScreen()),
       ConversationsScreen(key: _convKey, userId: _userId, userRole: _userRole),
       const SettingsScreen(),
     ];
@@ -346,7 +345,7 @@ class _TopBar extends StatelessWidget {
                 const SizedBox(width: 10),
 
                 // 🔔 Notification bell
-                NotifBellWidget(unreadCount: context.watch<NotificationProvider>().unreadCount),
+                _NotifBell(userId: userId, userType: 'client'),
                 const SizedBox(width: 10),
 
                 UserAvatar(

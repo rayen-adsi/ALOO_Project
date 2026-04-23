@@ -1643,51 +1643,156 @@ def upload_chat_media():
 
 # ===================== RUN =====================
 
-# ===================== CHATBOT =====================
+# ===================== CHATBOT (Gemini AI) =====================
+
+from google import genai as _genai
+
+_GEMINI_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyBG9qUqO1Poyw42E0FmbEIbEpilfMqfpd4")
+_gemini_client = None
+
+def _get_gemini():
+    global _gemini_client
+    if _gemini_client is None and _GEMINI_KEY:
+        _gemini_client = _genai.Client(api_key=_GEMINI_KEY)
+    return _gemini_client
+
+
+def _get_live_context():
+    """Pull live stats from the database to feed the AI."""
+    try:
+        providers   = Provider.query.all()
+        total_provs = len(providers)
+        categories  = list(set(p.category for p in providers if p.category))
+        top_rated   = sorted(providers, key=lambda p: p.rating or 0, reverse=True)[:5]
+        top_list    = ", ".join(
+            f"{p.full_name} ({p.category}, {p.rating}/5, {p.city})"
+            for p in top_rated
+        )
+        total_clients = Client.query.count()
+        return (
+            f"\n--- LIVE DATABASE STATS ---\n"
+            f"Total providers on platform: {total_provs}\n"
+            f"Total clients: {total_clients}\n"
+            f"Available categories: {', '.join(categories)}\n"
+            f"Top 5 rated providers: {top_list}\n"
+        )
+    except Exception:
+        return "\n(Could not load live data)\n"
+
+
+_SYSTEM_PROMPT = """You are ALOO Assistant — the official AI helper for the ALOO mobile app.
+
+## About ALOO
+ALOO is a mobile platform that connects clients with local service providers (plumbers, electricians, cleaners, mechanics, tutors, developers, etc.) in Algeria. Think of it as "Uber for local services."
+
+## How the app works
+1. **For Clients:**
+   - Browse providers by category or search by name
+   - See providers on an interactive map based on GPS location
+   - View provider profiles (photo, bio, skills, portfolio, reviews, rating)
+   - Contact providers via in-app messaging
+   - Receive structured service offers (description, price, date, time)
+   - Accept or refuse offers — accepted offers become reservations
+   - After a completed service, rate the provider (1-5 stars) and leave a review
+   - Add providers to favorites
+   - Get "Get Directions" to navigate to a provider's location
+
+2. **For Providers:**
+   - Create a detailed profile with skills, portfolio photos, and bio
+   - Receive messages from clients
+   - Send structured service offers with price, date, and time
+   - Track reservations on an agenda/calendar
+   - Earn a reputation score based on: completed jobs (+5 pts), reviews (rating × 2 pts), profile completeness (+10 pts each for photo/bio/skills/portfolio), and a one-time +10 bonus for 100% profile completion
+   - Achieve tier badges: New → Rising Star → Top Performer → Elite Provider
+   - Lose 15 points if reported for a no-show
+
+3. **Categories available:** Plombier (Plumber), Électricien (Electrician), Mécanicien (Mechanic), Femme de ménage (Cleaner), Professeur (Tutor), Développeur (Developer), Réparation domicile (Home Repair)
+
+4. **Languages:** The app supports English, French, and Arabic
+
+## Your behavior rules
+- Always respond in the SAME language the user writes in
+- Be friendly, concise, and helpful
+- If asked about a specific provider or category, use the live database stats provided below
+- If you don't know something specific, guide the user to explore the app
+- Never invent provider names or data — only use what's in the live stats
+- Keep answers SHORT (2-4 sentences max) unless the user asks for detail
+- You can use emojis sparingly to be friendly 😊
+"""
+
 
 def generate_chatbot_reply(message, user_role, lang='fr'):
+    """Generate a reply using Gemini AI, with fallback to simple rules."""
+    client = _get_gemini()
+
+    if client:
+        try:
+            live_ctx = ""
+            with app.app_context():
+                live_ctx = _get_live_context()
+
+            lang_map = {'fr': 'French', 'en': 'English', 'ar': 'Arabic'}
+            lang_name = lang_map.get(lang, 'French')
+
+            full_prompt = (
+                f"{_SYSTEM_PROMPT}\n"
+                f"{live_ctx}\n"
+                f"--- USER INFO ---\n"
+                f"User role: {user_role}\n"
+                f"App language setting: {lang_name}\n\n"
+                f"User message: {message}"
+            )
+
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=full_prompt,
+            )
+            reply = response.text.strip() if response.text else ""
+            if reply:
+                return reply
+        except Exception as e:
+            print(f"[Chatbot] Gemini error: {e}")
+
+    # ── Fallback: simple rule-based replies ────────────────────────────
     msg = message.lower()
-    
     replies = {
         'fr': {
             'greeting': "Bonjour ! Je suis votre assistant ALOO. Comment puis-je vous aider ?",
-            'booking': "Pour réserver, trouvez un prestataire sur la carte ou l'accueil, puis envoyez-lui um message.",
-            'price': "Les prix sont fixés directement entre vous et le prestataire via les offres.",
-            'default': "Je ne suis pas sûr de comprendre. Pourriez-vous reformuler ? Vous pouvez me poser des questions sur les réservations, les prestataires ou votre profil."
+            'booking':  "Pour réserver, trouvez un prestataire puis envoyez-lui un message.",
+            'price':    "Les prix sont fixés entre vous et le prestataire via les offres.",
+            'default':  "Désolé, l'IA est temporairement indisponible. Essayez de poser une question sur les réservations ou les prestataires."
         },
         'en': {
             'greeting': "Hello! I am your ALOO assistant. How can I help you?",
-            'booking': "To book, find a provider on the map or home screen, then send them a message.",
-            'price': "Prices are set directly between you and the provider via offers.",
-            'default': "I'm not sure I understand. Could you rephrase? You can ask me about bookings, providers, or your profile."
+            'booking':  "To book, find a provider and send them a message.",
+            'price':    "Prices are set between you and the provider via offers.",
+            'default':  "Sorry, AI is temporarily unavailable. Try asking about bookings or providers."
         },
         'ar': {
-            'greeting': "مرحبًا! أنا مساعد ALOO الخاص بك. كيف يمكنني مساعدتك؟",
-            'booking': "للحجز ، ابحث عن مزود خدمة على الخريطة أو الشاشة الرئيسية ، ثم أرسل له رسالة.",
-            'price': "يتم تحديد الأسعار مباشرة بينك وبين مزود الخدمة من خلال العروض.",
-            'default': "لست متأكدًا من أنني أفهم. هل يمكنك إعادة صياغة سؤالك؟ يمكنك سؤالي عن الحجوزات أو مزودي الخدمة أو ملفك الشخصي."
+            'greeting': "مرحبًا! أنا مساعد ALOO. كيف يمكنني مساعدتك؟",
+            'booking':  "للحجز، ابحث عن مزود خدمة وأرسل له رسالة.",
+            'price':    "يتم تحديد الأسعار بينك وبين مزود الخدمة.",
+            'default':  "عذرًا، الذكاء الاصطناعي غير متاح مؤقتًا. حاول السؤال عن الحجوزات أو مزودي الخدمة."
         }
     }
-    
     l = lang if lang in replies else 'fr'
-    
-    if any(x in msg for x in ['bonjour', 'hello', 'salut', 'مرحبا']):
+    if any(x in msg for x in ['bonjour', 'hello', 'salut', 'hi', 'مرحبا']):
         return replies[l]['greeting']
-    if any(x in msg for x in ['réserver', 'reservation', 'booking', 'حجز']):
+    if any(x in msg for x in ['réserver', 'reservation', 'booking', 'book', 'حجز']):
         return replies[l]['booking']
-    if any(x in msg for x in ['prix', 'argent', 'pay', 'cost', 'سعر', 'دفع']):
+    if any(x in msg for x in ['prix', 'price', 'cost', 'pay', 'سعر', 'دفع']):
         return replies[l]['price']
-        
     return replies[l]['default']
+
 
 @app.route('/chatbot/reply', methods=['POST'])
 def chatbot_reply():
-    data = request.json
+    data    = request.json
     message = data.get('message', '')
-    user_role = data.get('user_role', 'client')
-    lang = data.get('lang', 'fr')
-    
-    reply = generate_chatbot_reply(message, user_role, lang)
+    role    = data.get('user_role', 'client')
+    lang    = data.get('lang', 'fr')
+
+    reply = generate_chatbot_reply(message, role, lang)
     return ok({'reply': reply})
 
 if __name__ == "__main__":

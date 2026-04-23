@@ -352,7 +352,7 @@ class _MapScreenState extends State<MapScreen>
                 borderColor: const Color(0xFF2A5298).withOpacity(0.6),
                 borderStrokeWidth: 3.5,
                 useRadiusInMeter: true,
-                radius: 5000, // 5 km in meters
+                radius: 2500, // 2.5 km in meters
               )
             ],
           ),

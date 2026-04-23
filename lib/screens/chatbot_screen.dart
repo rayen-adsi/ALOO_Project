@@ -52,7 +52,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         userRole: widget.userRole,
         languageCode: context.read<LanguageProvider>().langCode,
       );
-      final reply = (res['reply'] as String? ?? '').trim();
+      final data = res['data'] as Map<String, dynamic>? ?? {};
+      final reply = (data['reply'] as String? ?? '').trim();
       setState(() {
         _messages.add(_BotMessage(
           text: reply.isEmpty ? _t('empty_reply') : reply,

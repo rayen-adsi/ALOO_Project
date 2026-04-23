@@ -1647,7 +1647,7 @@ def upload_chat_media():
 
 from google import genai as _genai
 
-_GEMINI_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyBG9qUqO1Poyw42E0FmbEIbEpilfMqfpd4")
+_GEMINI_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyDd5bLiDsRBfO3bvvCuVfQDjjgYxUDLLIk")
 _gemini_client = None
 
 def _get_gemini():
@@ -1691,7 +1691,7 @@ ALOO is a mobile platform that connects clients with local service providers (pl
    - See providers on an interactive map based on GPS location
    - View provider profiles (photo, bio, skills, portfolio, reviews, rating)
    - Contact providers via in-app messaging
-   - Receive structured service offers (description, price, date, time)
+   - Receive structured service offers (description, date, time)
    - Accept or refuse offers — accepted offers become reservations
    - After a completed service, rate the provider (1-5 stars) and leave a review
    - Add providers to favorites
@@ -1700,7 +1700,7 @@ ALOO is a mobile platform that connects clients with local service providers (pl
 2. **For Providers:**
    - Create a detailed profile with skills, portfolio photos, and bio
    - Receive messages from clients
-   - Send structured service offers with price, date, and time
+   - Send structured service offers with date and time
    - Track reservations on an agenda/calendar
    - Earn a reputation score based on: completed jobs (+5 pts), reviews (rating × 2 pts), profile completeness (+10 pts each for photo/bio/skills/portfolio), and a one-time +10 bonus for 100% profile completion
    - Achieve tier badges: New → Rising Star → Top Performer → Elite Provider
@@ -1716,6 +1716,7 @@ ALOO is a mobile platform that connects clients with local service providers (pl
 - If asked about a specific provider or category, use the live database stats provided below
 - If you don't know something specific, guide the user to explore the app
 - Never invent provider names or data — only use what's in the live stats
+- If asked about prices or payment: State that ALOO does not handle pricing or payments. Users must discuss these details directly with the provider.
 - Keep answers SHORT (2-4 sentences max) unless the user asks for detail
 - You can use emojis sparingly to be friendly 😊
 """
@@ -1744,7 +1745,7 @@ def generate_chatbot_reply(message, user_role, lang='fr'):
             )
 
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-flash-latest',
                 contents=full_prompt,
                 config={'http_options': {'timeout': 15000}},
             )
@@ -1760,19 +1761,16 @@ def generate_chatbot_reply(message, user_role, lang='fr'):
         'fr': {
             'greeting': "Bonjour ! Je suis votre assistant ALOO. Comment puis-je vous aider ?",
             'booking':  "Pour réserver, trouvez un prestataire puis envoyez-lui un message.",
-            'price':    "Les prix sont fixés entre vous et le prestataire via les offres.",
             'default':  "Désolé, l'IA est temporairement indisponible. Essayez de poser une question sur les réservations ou les prestataires."
         },
         'en': {
             'greeting': "Hello! I am your ALOO assistant. How can I help you?",
             'booking':  "To book, find a provider and send them a message.",
-            'price':    "Prices are set between you and the provider via offers.",
             'default':  "Sorry, AI is temporarily unavailable. Try asking about bookings or providers."
         },
         'ar': {
             'greeting': "مرحبًا! أنا مساعد ALOO. كيف يمكنني مساعدتك؟",
             'booking':  "للحجز، ابحث عن مزود خدمة وأرسل له رسالة.",
-            'price':    "يتم تحديد الأسعار بينك وبين مزود الخدمة.",
             'default':  "عذرًا، الذكاء الاصطناعي غير متاح مؤقتًا. حاول السؤال عن الحجوزات أو مزودي الخدمة."
         }
     }
@@ -1781,8 +1779,6 @@ def generate_chatbot_reply(message, user_role, lang='fr'):
         return replies[l]['greeting']
     if any(x in msg for x in ['réserver', 'reservation', 'booking', 'book', 'حجز']):
         return replies[l]['booking']
-    if any(x in msg for x in ['prix', 'price', 'cost', 'pay', 'سعر', 'دفع']):
-        return replies[l]['price']
     return replies[l]['default']
 
 

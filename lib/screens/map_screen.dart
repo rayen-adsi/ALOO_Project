@@ -267,7 +267,7 @@ class _MapScreenState extends State<MapScreen>
       final results = await ApiService.searchProviders(
         lat:      _pin.latitude,
         lng:      _pin.longitude,
-        radius:   5.0,
+        radius:   2.5,
         category: _selectedCategory,
       );
       if (!mounted) return;

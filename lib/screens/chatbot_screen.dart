@@ -208,9 +208,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         'ar': 'المساعد',
       },
       'welcome': {
-        'en': 'Hello! I am your ALOO assistant. Ask me about booking, pricing, or providers.',
-        'fr': 'Bonjour ! Je suis votre assistant ALOO. Posez-moi vos questions sur reservation, prix ou prestataires.',
-        'ar': 'مرحبا! انا مساعد ALOO. اسالني عن الحجز او الاسعار او مزودي الخدمة.',
+        'en': 'Hello! I am your ALOO assistant. Ask me about booking or providers.',
+        'fr': 'Bonjour ! Je suis votre assistant ALOO. Posez-moi vos questions sur reservation ou prestataires.',
+        'ar': 'مرحبا! انا مساعد ALOO. اسالني عن الحجز او مزودي الخدمة.',
       },
       'hint': {
         'en': 'Ask the assistant...',

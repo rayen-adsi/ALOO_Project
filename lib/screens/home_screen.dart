@@ -163,7 +163,7 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
       List<Map<String,dynamic>> res;
       if (_hasLoc && _lat != null && _lng != null) {
         // GPS top-6 within 5 km, score-sorted server-side (silent to users)
-        res = await ApiService.searchProviders(lat:_lat, lng:_lng, radius:5.0, limit:6);
+        res = await ApiService.searchProviders(lat:_lat, lng:_lng, radius:2.5, limit:6);
       } else {
         final all = await ApiService.getProviders();
         res = all.take(6).toList();

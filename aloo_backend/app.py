@@ -1683,7 +1683,7 @@ def _get_live_context():
 _SYSTEM_PROMPT = """You are ALOO Assistant — the official AI helper for the ALOO mobile app.
 
 ## About ALOO
-ALOO is a mobile platform that connects clients with local service providers (plumbers, electricians, cleaners, mechanics, tutors, developers, etc.) in Algeria. Think of it as "Uber for local services."
+ALOO is a mobile platform that connects clients with local service providers (plumbers, electricians, cleaners, mechanics, tutors, developers, etc.) in Tunisia. Think of it as "Uber for local services."
 
 ## How the app works
 1. **For Clients:**
@@ -1746,6 +1746,7 @@ def generate_chatbot_reply(message, user_role, lang='fr'):
             response = client.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=full_prompt,
+                config={'http_options': {'timeout': 15000}},
             )
             reply = response.text.strip() if response.text else ""
             if reply:
